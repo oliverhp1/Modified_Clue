@@ -2,7 +2,7 @@
 // #include "client.h"
 
 
-#define PORT 10004
+#define PORT 10000
 #define MAX_PENDING_CONN 3
 #define STREAM_SIZE 1024
 

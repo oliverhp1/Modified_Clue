@@ -50,9 +50,11 @@ void Server::initialize(){
 	string connection_message = 
 		"Connection confirmed. "
 		"Type \"start\" when all players are connected.\r\n";
-	string start_message = "Game is starting.\r\n";
+	string insufficient_message = "Only one client connected. At least "
+		"two required.\r\n";
 	string invalid_message = "Invalid message. Type \"start\" when ready\r\n";
-
+	string start_message = "Game is starting.\r\n";
+	
 
 	// initialize socket that will listen for connections
 	listening_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -173,9 +175,8 @@ void Server::initialize(){
 					}
 					else {
 						// handle the message
-						// terminate char array
+						// terminate char array for string handling
 						buffer[incoming_stream] = '\0';
-						cout << buffer << endl;
 
 						printf(
 							"Message received from socket %d: %s", 
@@ -185,7 +186,17 @@ void Server::initialize(){
 
 						if (strncmp(buffer, "start", 5) == 0){
 							// someone started the game
-							running = false;
+							if (n_clients == 1){
+								send(temp_socket,
+									insufficient_message.c_str(),
+									insufficient_message.size(),
+									0
+								);
+							}
+							else {
+								running = false;
+							}
+							
 						}
 						else {
 							send(temp_socket, 
@@ -199,15 +210,23 @@ void Server::initialize(){
 				}
 			}
 		}
-
-
 	}
 
-	cout << "finished connecting clients. notify all, then start game" << endl;
+	cout << "Game starting. Notifying all " << n_clients 
+		 << " clients\r\n" << endl;
 
+	for (int i = 0; i < n_clients; i++){
+		// check for messages from all clients
+		temp_socket = socket_tracker[i];
 
-
-
+		if (temp_socket > 0){
+			send(temp_socket,
+				start_message.c_str(),
+				start_message.size(),
+				0
+			);
+		}
+	}
 
 }
 
