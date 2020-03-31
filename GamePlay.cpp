@@ -26,21 +26,22 @@ using namespace std;
 
 
 
-static void navigate(int player_id, int socket_id, int* socket_tracker){
+void GamePlay::navigate(int player_id, int* socket_tracker, Server server){
 	int socket_id = socket_tracker[player_id];
+	int n_clients = server.get_n_clients();
 
 	// ask what room player wants to move to
-	string request_location = "Where would you like to move?";
+	string request_location = "Where would you like to move?\n\t";
 
 	send(
 		socket_id, 
-		message.c_str(), 
-		message.size(), 
+		request_location.c_str(), 
+		request_location.size(), 
 		0
 	);
 
 	// get answer
-	string location_buffer = receive_communication(socket_id);
+	string location_buffer = server.receive_communication(socket_id);
 
 
 	/* TODO: actual logic here
@@ -51,8 +52,8 @@ static void navigate(int player_id, int socket_id, int* socket_tracker){
 
 
 	// communicate to all other clients
-	char* notify_all_clients = "Player " + to_string(player_id) 
-		+ " is moving to " + location_buffer;
+	string notify_all_clients = "Player " + to_string(player_id) 
+		+ " is moving to the " + location_buffer + "\n";
 
 	for (int i = 0; i < n_clients; i++){
 		if (i != player_id){
@@ -65,18 +66,35 @@ static void navigate(int player_id, int socket_id, int* socket_tracker){
 		}
 	}
 
-
-
-
-	cout << notify_all_clients << endl;
-	return ;
+	// also output on the server
+	cout << notify_all_clients;
+	return;
 
 }
-static int suggest(int, int);
-static int accuse(int, int);
 
 
 
+int GamePlay::suggest(int player_id, int* socket_tracker, Server server){
+	cout << "not implemented yet" << endl;
+	return 0;
+}
 
-static string getting_accused(int, int);
+int GamePlay::accuse(int player_id, int* socket_tracker, Server server){
+	cout << "not implemented yet" << endl;
+	return 0;
+}
+
+int GamePlay::pass(int player_id, int* socket_tracker, Server server){
+	cout << "not implemented yet" << endl;
+	return 0;
+}
+
+
+
+string GamePlay::getting_accused(int player_id, int* socket_tracker){
+	cout << "not implemented yet" << endl;
+	return 0;
+}
+
+
 

@@ -1,4 +1,6 @@
 #include "Server.h"
+#include "GamePlay.h"
+
 
 using namespace std;
 
@@ -14,7 +16,7 @@ class Player {        // The class
     	bool is_in_play();	// track accusation logic
     	bool did_win();
 
-    	int execute_turn(Server);
+    	void execute_turn(Server);
     	string show_hand();	  // do at any time. Also print at the beginning
 
     	// string getting_accused();	// when another player accuses this player

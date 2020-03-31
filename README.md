@@ -1,6 +1,6 @@
 # Clue
 
-At this point (initial commit), to run, open a terminal console, cd to the directory, run `make` and then `./game`  
+At this point (initial commit), to run, open a terminal console, cd to the directory, run `make clean`, then run `make` and finally `./game`  
 
 This will set up the server, which will listen for client connections  
 

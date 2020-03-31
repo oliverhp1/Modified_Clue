@@ -113,7 +113,7 @@ void Server::initialize(){
 		if (FD_ISSET(listening_socket, &active_sockets)){
 			// client attempting to connect
 			// accept the connection and add it to fd_set (and socket tracker)
-			cout << "Connection attempt received...\n" << endl;
+			cout << "Connection attempt received..." << endl;
 			new_client = accept(
 				listening_socket, 
 				(struct sockaddr *)&address, 
@@ -139,7 +139,7 @@ void Server::initialize(){
 			socket_tracker[connection_index] = new_client;
 
 			cout << "Successful new connection " << new_client 
-				 << " at index " << connection_index << endl;
+				 << " at index " << connection_index << "\n\n";
 			if (new_client > max_connection){
 				max_connection = new_client;
 			}
@@ -310,8 +310,12 @@ string Server::receive_communication(int socket_id){
 					else {
 						// handle the message
 						// terminate char array for string handling
-						// buffer[incoming_stream] = '\0';	 // is this necessary?
-						received = true;	// don't think this is needed either
+						// the last 2 characters will be newline, ?
+						// so terminate before that
+						// cout << "incoming stream: " << incoming_stream << endl;
+						buffer[incoming_stream - 2] = '\0';	 
+						received = true;	// not really necessary
+
 						string output(buffer);
 						return output;
 					}
@@ -319,7 +323,9 @@ string Server::receive_communication(int socket_id){
 			}
 		}
 	}
-	cout << "debug: loop broken in Server.receive_communication\r\n" << endl;
+
+	cerr << "DEBUG: loop broken in Server.receive_communication" << endl;
+	exit(1);
 }
 
 
@@ -333,8 +339,8 @@ int Server::get_n_clients(){
 	return n_clients;
 }
 
-/* 
-void close_all(){		go through each of socket_tracker[i] and close each
+
+void Server::close_all(){		
 	cout << "Closing all connections... \r\n" << endl;
 
 	for (int i = 0; i < n_clients; i++){
@@ -344,5 +350,4 @@ void close_all(){		go through each of socket_tracker[i] and close each
 
 	cout << "Confirmed; exiting program.\r\n" << endl;
 }
-*/
 

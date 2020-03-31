@@ -1,7 +1,7 @@
 #include "Player.h"
-#include "GamePlay.h"
 
-#define PORT 10000	// TODO: pass this as runtime arg instead of hardcoding
+// TODO: pass this as runtime arg instead of hardcoding
+#define PORT 10005
 #define MAX_PENDING_CONN 3
 
 
@@ -51,6 +51,11 @@ int main(int argc, char *argv[]){
 		or reset to 0 whenever we hit max_clients
 	*/
 
+	cout << "3 cards reserved in the case file." << endl;
+	cout << "Remaining 18 cards shuffled out to all players\n" << endl;
+
+	// show cards to players once
+
 
 	// finally, this is the main game loop
 	bool game_active = true;
@@ -59,15 +64,13 @@ int main(int argc, char *argv[]){
 	while (game_active){
 		for (int i = 0; i < n_clients; i++){
 			if (in_play[i]){
-				cout << players[i].execute_turn(server) << endl;
+				players[i].execute_turn(server);
 					// build gameplay logic into here, or outside of here. either way, need a way to communicate between players.
 				// AND WE NEED TO BROADCAST EVERYTHING AFTER ANYTHING HAPPENS
 
 
 				in_play[i] = players[i].is_in_play();
 				winner[i] = players[i].did_win();
-
-				winner[i] = true;
 
 
 
@@ -99,11 +102,49 @@ int main(int argc, char *argv[]){
 
 		// if we get here, every player has gone once
 		// we want to keep going if game is still active
+
+
+
 		
+	}
+
+
+	// check for winner
+	int winning_player;
+	for (int i = 0; i < n_clients; i++){
+		if (winner[i]){
+			winning_player = i;
+			break;
+		}
+	}
+
+	// broadcast to all 
+	string loser_message = "Game Over: Player " + to_string(winning_player) + " Wins.\r\n";
+	string winner_message = "You win!\r\n";
+
+	cout << loser_message << endl;
+
+	for (int i = 0; i < n_clients; i++){
+		if (winner[i]){
+			send(
+				socket_tracker[i], 
+				winner_message.c_str(), 
+				winner_message.size(), 
+				0
+			);
+		}
+		else {
+			send(
+				socket_tracker[i], 
+				loser_message.c_str(), 
+				loser_message.size(), 
+				0
+			);
+		}
 	}
 	
 
-	// server.close_all();
+	server.close_all();
 
 	return 0;
 }

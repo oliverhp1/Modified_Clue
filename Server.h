@@ -48,7 +48,7 @@ class Server{
 
 		int get_n_clients();
 
-		// void close_all();
+		void close_all();
 
 
 

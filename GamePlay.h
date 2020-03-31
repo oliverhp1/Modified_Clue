@@ -18,14 +18,15 @@ class GamePlay {
 
         // each of these will get player_id and socket_id
         // corresponding to which player is doing the action
-    	static void navigate(int, int, int*);
-    	static int suggest(int, int, int*);
-        static int accuse(int, int, int*);
+    	static void navigate(int, int*, Server);
+    	static int suggest(int, int*, Server);
+        static int accuse(int, int*, Server);
+        static int pass(int, int*, Server);
 
 
 
     	
-    	static string getting_accused(int, int);
+    	static string getting_accused(int, int*);
 
 
 };
