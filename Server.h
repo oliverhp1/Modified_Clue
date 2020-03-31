@@ -1,3 +1,5 @@
+#pragma once
+
 #include <iostream>
 
 #include <stdio.h>  
@@ -16,13 +18,15 @@
 
 #define MAX_CLIENTS 6   // one per player
 
+
 /*
  * this server class serves to connect clients.
- * when ready, any client can kick off the game.
+ * when ready, any client can kick off the game,
+ * provided there is more than one client connected.
 
- * to handle multiple client connections atonce, we use fd_set.
+ * to handle multiple client connections at once, we use fd_set.
  * the brute force approach would be making a separate thread per client,
- * but as we have 6 clients, it would quickly become untenable to track
+ * but as we have up to 6 clients, it would quickly become untenable to track
  * each one individually.
  */
 class Server{
@@ -31,8 +35,10 @@ class Server{
 		Server(int, int, int, int);
 		// ~Server();
 
-		// allow clients to connect
-		void initialize();
+		int initialize();	// get client connections; return # clients
+		int* get_socket_tracker();
+
+		// void close_all();
 
 
 

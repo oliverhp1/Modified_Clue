@@ -18,7 +18,7 @@ Server::Server(int port, int max_clients, int max_pending, int stream_size){
 	this->n_clients = 0;
 
 
-	for (int i = 0; i < MAX_CLIENTS; i++){
+	for (int i = 0; i < max_clients; i++){
 		socket_tracker[i] = 0;
 	}
 
@@ -33,7 +33,7 @@ Server::Server(int port, int max_clients, int max_pending, int stream_size){
  * when all clients are connected (or one of them starts game),
  * this method is terminated
  */
-void Server::initialize(){
+int Server::initialize(){
 	bool running = true;
 	int temp_socket, new_client;
 
@@ -149,6 +149,8 @@ void Server::initialize(){
 				connection_message.size(), 
 				0
 			);
+
+
 		}
 		else {
 			// it's an inbound message from a client
@@ -210,6 +212,16 @@ void Server::initialize(){
 				}
 			}
 		}
+
+		// don't allow more than 6 clients
+		if (n_clients == max_clients){
+			running = false;
+		}
+		else if (n_clients > max_clients){
+			// should never get here; leave for debugging purposes
+			cerr << "Max clients exceeded; exiting..." << endl;
+			exit(1);
+		}
 	}
 
 	cout << "Game starting. Notifying all " << n_clients 
@@ -228,13 +240,20 @@ void Server::initialize(){
 		}
 	}
 
+	return n_clients;
 }
 
 
 
 
 
+int* Server::get_socket_tracker(){
+	return socket_tracker;
+}
 
 
+// void close_all(){		// look up fd_set code for closing everything
+
+// }
 
 

@@ -10,7 +10,7 @@ LINKER_FLAGS = -lSDL2 #-lSDL2_image -lSDL2_ttf -lSDL2_mixer
 #OBJ_NAME specifies the name of our exectuable
 OBJ_NAME = game
 
-FILES = ClueLess.cpp Server.cpp
+FILES = ClueLess.cpp Server.cpp Player.cpp #GamePlay.cpp
 
 
 
@@ -28,4 +28,4 @@ $(OBJ_NAME): $(OBJS)
 
 
 clean: 
-	rm -rf *.o $(OBJ_NAME)
+	rm -rf *.o $(OBJ_NAME) 
