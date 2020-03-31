@@ -3,7 +3,6 @@
 
 #define PORT 10000	// TODO: pass this as runtime arg instead of hardcoding
 #define MAX_PENDING_CONN 3
-#define STREAM_SIZE 1024
 
 
 using namespace std;
@@ -14,7 +13,9 @@ int main(int argc, char *argv[]){
 	int n_clients;
 
 	Server server(PORT, MAX_CLIENTS, MAX_PENDING_CONN, STREAM_SIZE);
-	n_clients = server.initialize();
+	server.initialize();
+
+	n_clients = server.get_n_clients();
 
 	// contains socket ids used to send/receive messages
 	int* socket_tracker = server.get_socket_tracker();
@@ -37,6 +38,18 @@ int main(int argc, char *argv[]){
 	}
 
 
+	// TODO: INITIALIZE PLAYERS' CARDS AS WELL AS CASE FILE CARDS
+	// ALSO NEED TO MAKE GLOBAL MAP FOR WHAT CARD CORRESPONDS TO WHAT
+	// 		probably makes sense to make that map in GamePlay.h, or a global file.
+	/* something like this:
+
+	int case_file[3];
+	random sample numbers 1-21, without replacement
+	stick first 3 in case file
+	then for 4:21, player[i].add_card(card)
+		where i is player_id.  we can start i from 0 and use the mod at each increment, 
+		or reset to 0 whenever we hit max_clients
+	*/
 
 
 	// finally, this is the main game loop
@@ -46,7 +59,7 @@ int main(int argc, char *argv[]){
 	while (game_active){
 		for (int i = 0; i < n_clients; i++){
 			if (in_play[i]){
-				cout << players[i].execute_turn() << endl;
+				cout << players[i].execute_turn(server) << endl;
 					// build gameplay logic into here, or outside of here. either way, need a way to communicate between players.
 				// AND WE NEED TO BROADCAST EVERYTHING AFTER ANYTHING HAPPENS
 

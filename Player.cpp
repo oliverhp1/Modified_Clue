@@ -10,21 +10,23 @@ Player::Player() {
 
 
 
-int Player::execute_turn(){
+int Player::execute_turn(Server server){
+	// ask what player wants to do
 	string message = "Your turn.  Navigate, suggest, or accuse?\r\n";
-
 	send(
 		socket_id, 
 		message.c_str(), 
 		message.size(), 
 		0
 	);
+
+	// get response
+	string action_buffer = server.receive_communication(socket_id);
+
+	cout << action_buffer << endl;
+
 	return player_id;
 }
-
-// string Player::getting_accused(){
-// 	return "sup";
-// }
 
 
 void Player::set_player_id(int player_id){

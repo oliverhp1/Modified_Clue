@@ -22,6 +22,8 @@ Server::Server(int port, int max_clients, int max_pending, int stream_size){
 		socket_tracker[i] = 0;
 	}
 
+	this->not_your_turn = "Invalid message: not your turn.\r\n";
+
 
 
 
@@ -33,7 +35,7 @@ Server::Server(int port, int max_clients, int max_pending, int stream_size){
  * when all clients are connected (or one of them starts game),
  * this method is terminated
  */
-int Server::initialize(){
+void Server::initialize(){
 	bool running = true;
 	int temp_socket, new_client;
 
@@ -240,9 +242,85 @@ int Server::initialize(){
 		}
 	}
 
-	return n_clients;
+	// 
+	this->active_sockets = active_sockets;
+
+	return ;
 }
 
+
+
+
+// this will receive a char buffer from socket_id
+// if we receive messages from other sockets, send back warning message
+string Server::receive_communication(int socket_id){
+	// reset fd_set
+	int temp_socket;
+	bool received = false;
+	int max_connection = 0;
+	int incoming_stream;
+	char buffer[STREAM_SIZE];
+
+	// if error, use this->
+	for (int i = 0; i < max_clients; i++){
+		temp_socket = socket_tracker[i];
+		if (temp_socket > 0) FD_SET(temp_socket, &active_sockets);
+		if (temp_socket > max_connection) max_connection = temp_socket;
+	}
+
+	while (!received){
+		// listen for an action on any socket
+		int incoming_action = select(
+			max_connection + 1, &active_sockets, nullptr, nullptr, nullptr
+		);
+
+		// when received, check where it came from
+		for (int i = 0; i < max_clients; i++){
+			// check for messages from all clients
+			temp_socket = socket_tracker[i];
+
+
+			if (FD_ISSET(temp_socket, &active_sockets)){
+				if (temp_socket != socket_id){
+					// someone else is trying to send something
+					send(temp_socket, 
+						not_your_turn.c_str(), 
+						not_your_turn.size(), 
+						0
+					);
+				}
+				else {
+					// got desired message
+					incoming_stream = read(temp_socket, buffer, stream_size);
+
+					if (incoming_stream == 0){
+						// temp_socket is no longer connected
+						getpeername(
+							temp_socket, 
+							(struct sockaddr*)&address,  
+							(socklen_t*)&address_length
+						);
+						cout << "Client disconnected: " 
+							 << ntohs(address.sin_port);
+
+						close(temp_socket);
+						socket_tracker[i] = 0;
+						FD_CLR(temp_socket, &active_sockets);
+					}
+					else {
+						// handle the message
+						// terminate char array for string handling
+						// buffer[incoming_stream] = '\0';	 // is this necessary?
+						received = true;	// don't think this is needed either
+						string output(buffer);
+						return output;
+					}
+				}
+			}
+		}
+	}
+	cout << "debug: loop broken in Server.receive_communication\r\n" << endl;
+}
 
 
 
@@ -251,9 +329,20 @@ int* Server::get_socket_tracker(){
 	return socket_tracker;
 }
 
+int Server::get_n_clients(){
+	return n_clients;
+}
 
-// void close_all(){		// look up fd_set code for closing everything
+/* 
+void close_all(){		go through each of socket_tracker[i] and close each
+	cout << "Closing all connections... \r\n" << endl;
 
-// }
+	for (int i = 0; i < n_clients; i++){
+		close(socket_tracker[i]);
+		FD_CLR(socket_tracker[i], &active_sockets);
+	}	
 
+	cout << "Confirmed; exiting program.\r\n" << endl;
+}
+*/
 

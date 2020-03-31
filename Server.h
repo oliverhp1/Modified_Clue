@@ -5,6 +5,7 @@
 #include <stdio.h>  
 #include <string.h>
 #include <stdlib.h>  
+#include <vector> 
 
 #include <errno.h>  
 #include <unistd.h>
@@ -17,6 +18,11 @@
 #include <netinet/in.h>  
 
 #define MAX_CLIENTS 6   // one per player
+#define STREAM_SIZE 1024
+
+
+
+using namespace std;
 
 
 /*
@@ -35,8 +41,12 @@ class Server{
 		Server(int, int, int, int);
 		// ~Server();
 
-		int initialize();	// get client connections; return # clients
+		void initialize();	// get client connections; return # clients
 		int* get_socket_tracker();
+
+		string receive_communication(int);	// socket id
+
+		int get_n_clients();
 
 		// void close_all();
 
@@ -57,6 +67,10 @@ class Server{
 		// multithreading is not scalable with # clients, 
 		// and we have 6, which would not be nice to handle
 		fd_set active_sockets;
+
+
+		// other helper attributes
+		string not_your_turn;
 
 
 };
