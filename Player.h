@@ -5,9 +5,14 @@
 using namespace std;
 
 
-class Player {        // The class
-	public:              // Access specifier
-		// Method/function declaration
+/*     TODO
+	This is our player class.
+	it contains attributes for...
+	it has a method execute_turn, which structures the turn of a player
+*/
+class Player {
+	public: 
+		
     	Player();
 
     	void set_player_id(int);

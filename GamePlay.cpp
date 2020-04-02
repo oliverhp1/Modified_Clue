@@ -3,28 +3,8 @@
 using namespace std;
 
 
-/* on a player's turn they have several options:
-	1. navigate 
-		- from hallway to room (must do this if you start in a hallway)
-		- from room to hallway (if not occupied)
-			- *you must move from the room, unless you were moved there by a suggestion
-		- take secret passageway (if available)
-	2. make suggestion
-		- you can suggest before or after navigating,
-			as long as you are in a room.
-		    but you cannot navigate after suggesting.
-		- when you make a suggestion, the suggested player (and weapon) is moved to your room
-		- then, subsequent player must show you a card you suggested
-			- if they have none, it goes to the next player
-			- if nobody has any, suggestion use case ends.
-			- suggestion use case also ends as soon as first card is shown.
-	3. make accusation
-		- you can accuse at any time.
-		- immediately after an accusation, you either win, or are out of the game permanently
-			- so that of course means you cannot navigate or suggest afterwards.
-*/
 
-
+// these are all the actions that a player might take on their turn.
 
 void GamePlay::navigate(int player_id, int* socket_tracker, Server server){
 	int socket_id = socket_tracker[player_id];
