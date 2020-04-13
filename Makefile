@@ -2,7 +2,7 @@
 CC = g++
 
 #COMPILER_FLAGS specifies the additional compilation options we're using
-COMPILER_FLAGS = -Wall -std=c++11  # -v (for debugging) -c (no idea what that does, but it breaks everything)
+COMPILER_FLAGS = -std=c++17 # -Wall -v (for debugging) -c (no idea what that does, but it breaks everything)
 
 #LINKER_FLAGS specifies the libraries we're linking against
 #LINKER_FLAGS = -lSDL2 #-lSDL2_image -lSDL2_ttf -lSDL2_mixer
@@ -10,13 +10,14 @@ COMPILER_FLAGS = -Wall -std=c++11  # -v (for debugging) -c (no idea what that do
 #OBJ_NAME specifies the name of our exectuable
 OBJ_NAME = game
 
-FILES = ClueLess.cpp Server.cpp Player.cpp GamePlay.cpp
+FILES = ClueLess.cpp Server.cpp Player.cpp GamePlay.cpp globals.cpp
 
 
 
 all: $(OBJ_NAME)
 
 $(OBJ_NAME): $(OBJS)
+	#$(CC) $(COMPILER_FLAGS) $(FILES) -o $(OBJ_NAME)   #$(LINKER_FLAGS)
 	$(CC) $(FILES) -o $(OBJ_NAME)   #$(LINKER_FLAGS)
 
 # ClueLess.o: ClueLess.cpp Server.h

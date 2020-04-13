@@ -1,21 +1,6 @@
 #pragma once
 
-#include <iostream>
-
-#include <stdio.h>  
-#include <string.h>
-#include <stdlib.h>  
-#include <vector> 
-
-#include <errno.h>  
-#include <unistd.h>
-#include <arpa/inet.h>   
-
-#include <sys/types.h>  
-#include <sys/socket.h>  
-#include <sys/time.h>
-
-#include <netinet/in.h>  
+#include "globals.h"
 
 #define MAX_CLIENTS 6   // one per player
 #define STREAM_SIZE 1024

@@ -11,7 +11,15 @@ void GamePlay::navigate(int player_id, int* socket_tracker, Server server){
 	int n_clients = server.get_n_clients();
 
 	// ask what room player wants to move to
+
+	// TODO: FIGURE OUT VALID CHOICES TO MOVE TO BEFOREHAND
+	// refer to the diagram and rules in the problem statement
+	// then stick it in this string
+	// e.g. "Would you like to move to the " + option1 + " or"... etc
 	string request_location = "Where would you like to move?\n\t";
+
+	cout << location_map[1] << endl;
+
 
 	send(
 		socket_id, 
@@ -26,8 +34,10 @@ void GamePlay::navigate(int player_id, int* socket_tracker, Server server){
 
 	/* TODO: actual logic here
 
-	 first check that the choice was valid. actually ideally, we'd print all valid choices beforehand
-	 then, actually move the player there.
+		first check that the choice was valid.
+		then, actually move the player there.
+		do this by updating the player attribute for location
+		will probably want to make a private method "move_player(int location)" to do this
 	*/
 
 
@@ -77,4 +87,12 @@ string GamePlay::getting_accused(int player_id, int* socket_tracker){
 }
 
 
+unordered_map<int, string> GamePlay::location_map;
 
+void GamePlay::populate_location_map(){
+	// unordered_map<int, string> locations;
+
+	location_map[1] = "Study";
+	// return locations;
+}
+// static unordered_map<int, string> generate_card_map();

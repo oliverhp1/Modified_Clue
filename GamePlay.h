@@ -28,5 +28,10 @@ class GamePlay {
     	
     	static string getting_accused(int, int*);
 
+        static unordered_map<int, string> location_map;
+        static void populate_location_map();
+        // static unordered_map<int, string> generate_card_map();
+
+
 
 };

@@ -1,7 +1,7 @@
 #include "Player.h"
 
 // TODO: pass this as runtime arg instead of hardcoding
-#define PORT 10005
+#define PORT 10002
 #define MAX_PENDING_CONN 3
 
 
@@ -38,6 +38,11 @@ int main(int argc, char *argv[]){
 	}
 
 
+	// TESTING LOCATION MAP
+	// cout << locations[1] << endl;
+	GamePlay::populate_location_map();
+
+
 	// TODO: INITIALIZE PLAYERS' CARDS AS WELL AS CASE FILE CARDS
 	// ALSO NEED TO MAKE GLOBAL MAP FOR WHAT CARD CORRESPONDS TO WHAT
 	// 		probably makes sense to make that map in GamePlay.h, or a global file.
@@ -47,8 +52,10 @@ int main(int argc, char *argv[]){
 	random sample numbers 1-21, without replacement
 	stick first 3 in case file
 	then for 4:21, player[i].add_card(card)
-		where i is player_id.  we can start i from 0 and use the mod at each increment, 
-		or reset to 0 whenever we hit max_clients
+		where i is player_id.  
+		we can start i from 0 and use the mod at each increment, 
+		or reset to 0 whenever we hit max_clients.
+		each player's hand is stored in a vector, the "hand" attribute.
 	*/
 
 	cout << "3 cards reserved in the case file." << endl;

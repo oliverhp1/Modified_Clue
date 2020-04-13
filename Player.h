@@ -29,6 +29,7 @@ class Player {
 
     private: 
     	int player_id, socket_id;
+        int location;   // corresponds to the 'location' map in globals
     	bool in_play, win;	// if player has made accusation, update these
 
     	// since we are allowing any number of players, hands can
