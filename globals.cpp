@@ -1,6 +1,6 @@
 #include "globals.h"
 
-using namespace std;
+// using namespace std;
 // using namespace std;
 
 
@@ -8,13 +8,9 @@ using namespace std;
 // const int SCREEN_WIDTH;
 // const int SCREEN_HEIGHT;
 
-// // create our location map
-// boost::unordered_map<int, string> locations =  boost::assign::map_list_of
-//     (1, string("Study"))
-// 	// (2, "Hallway (Study, Hall)"),
-// 	// (3, "Hall")
-// ;
 
+// fd_set doesn't work with c++11 or after
+// and std::unordered_map initialize with dynamic array doesn't work with anything before c++11
 
 // // create our card map
 // // 	players, locations, weapons

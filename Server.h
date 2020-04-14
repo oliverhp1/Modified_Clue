@@ -1,6 +1,22 @@
 #pragma once
 
-#include "globals.h"
+#include <iostream>
+#include <unordered_map>
+
+#include <stdio.h>  
+#include <string.h>
+#include <stdlib.h>  
+#include <vector> 
+
+#include <errno.h>  
+#include <unistd.h>
+#include <arpa/inet.h>   
+
+#include <sys/types.h>  
+#include <sys/socket.h>  
+#include <sys/time.h>
+
+#include <netinet/in.h>  
 
 #define MAX_CLIENTS 6   // one per player
 #define STREAM_SIZE 1024
@@ -45,6 +61,11 @@ class Server{
 		int max_pending, address_length;
 		int max_clients, n_clients;
 
+		// common communication messages to send to clients
+		static string connection_message, start_message;
+		static string insufficient_message, invalid_message, not_your_turn;
+
+
 		struct sockaddr_in address;
 
 		// fd_set is standard c++ code for handling multiple
@@ -54,8 +75,9 @@ class Server{
 		fd_set active_sockets;
 
 
-		// other helper attributes
-		string not_your_turn;
+		int reset(fd_set*);
+		fd_set connect_all();
+
 
 
 };
