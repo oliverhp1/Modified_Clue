@@ -4,25 +4,34 @@ using namespace std;
 
 
 
-// these are all the actions that a player might take on their turn.
+/** These are all the actions that a player might take on their turn.
+ * They are implemented as static methods so we don't have to worry about
+ * keeping track of a separate object instance and calling from it.
+ * Methods correspond to general Clue gameplay:
+ *	navigate
+ *	suggest
+ *	accuse
+ *	pass
+ */
 
 void GamePlay::navigate(int player_id, int* socket_tracker, Server server){
 	int socket_id = socket_tracker[player_id];
 	int n_clients = server.get_n_clients();
 
 
-	// TODO: FIGURE OUT VALID CHOICES TO MOVE TO BEFOREHAND
-	// refer to the diagram and rules in the file describing our class project
+	// TODO: FIGURE OUT VALID CHOICES TO MOVE TO BEFOREHAND. 
+	// please do this in the Player.cpp file, under execute_turn() method if possible.
+	// you'll probably want to make an attribute (e.g. static attribute in GamePlay) tracking where all players locations are.
+	// for the logic, refer to the diagram and rules in the file describing our class project.
 	// you can use location_map.  store a player's current location in an attribute, 
 	// e.g. player::location (preferably, make it a private attribute and use setter and getter methods),
 	// and then use that and the location_map to determine valid places to move.
-	// then stick it in "request_location" string below
+	// then stick it in "request_location" string below.
+	// syntax for location map is just: location_map[1] will return "Study", and so on. (see bottom of this file)
 	// 
 	// e.g. "Would you like to move to the " + option1 + " or"... etc
+
 	string request_location = "Where would you like to move?\n\t";
-
-	cout << location_map[1] << endl;
-
 
 	send(
 		socket_id, 

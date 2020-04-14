@@ -17,6 +17,8 @@ class Player {
 
     	void set_player_id(int);
     	void set_socket_id(int);
+
+        string get_character();
     	
     	bool is_in_play();	// track accusation logic
     	bool did_win();
@@ -31,6 +33,8 @@ class Player {
     	int player_id, socket_id;
         int location;   // corresponds to the 'location' map in globals
     	bool in_play, win;	// if player has made accusation, update these
+
+        string character;
 
     	// since we are allowing any number of players, hands can
     	// vary in size. so a vector is preferable to an array

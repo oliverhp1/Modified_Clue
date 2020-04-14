@@ -110,8 +110,10 @@ void Player::execute_turn(Server server){
 
 // setter and getter methods
 
+// we can also set player's character here
 void Player::set_player_id(int player_id){
 	this->player_id = player_id;
+	this->character = GamePlay::card_map[player_id + 1];
 
 	cout << "Player " << player_id << " initialized" << endl;
 }
@@ -120,6 +122,9 @@ void Player::set_socket_id(int socket_id){
 	this->socket_id = socket_id;
 }
 
+string Player::get_character(){
+	return this->character;
+}
 
 bool Player::is_in_play(){
 	return in_play;

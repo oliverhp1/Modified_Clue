@@ -1,14 +1,30 @@
 #include "Player.h"
 
 // TODO: pass this as runtime arg instead of hardcoding
-#define PORT 10002
+#define PORT 10005
 #define MAX_PENDING_CONN 3
 
 
 using namespace std;
 
 
+
+/** This drives the remainder of the code in our project.
+ * It will instantiate a server object, accept all connections,
+ * instantiate all player objects, then enter the main game loop
+ * where each player executes their turns until the 
+ * winning condition is reached.
+ */
 int main(int argc, char *argv[]){
+	// initialize location and card maps
+	// ideally you'd just initialize them when defined, but the c++ compilers 
+	// that work with fd_set don't support initializer lists
+	GamePlay::populate_location_map();
+	GamePlay::populate_card_map();
+	cout << GamePlay::location_map[1] << endl;
+	cout << GamePlay::card_map[21] << endl;
+
+
 	// start up server and get connections
 	int n_clients;
 
@@ -28,9 +44,18 @@ int main(int argc, char *argv[]){
 	bool winner[n_clients];		// to track winning/losing conditions
 	bool in_play[n_clients];  
 	int players_remaining = n_clients;	// in case everyone strikes out
+	string who_are_you;
 
 	for (int i = 0; i < n_clients; i++){
-		players[i].set_player_id(i);
+		players[i].set_player_id(i);	// also sets characters
+		who_are_you = "You are " + players[i].get_character() + "\n";
+		send(
+			socket_tracker[i],
+			who_are_you.c_str(),
+			who_are_you.size(),
+			0
+		);
+
 		players[i].set_socket_id(socket_tracker[i]);
 
 		in_play[i] = true;
@@ -38,13 +63,9 @@ int main(int argc, char *argv[]){
 	}
 
 
-	// initialize location and card maps
-	// ideally you'd just initialize them when defined, but the c++ compilers 
-	// that work with fd_set don't support initializer lists
-	GamePlay::populate_location_map();
-	GamePlay::populate_card_map();
-	cout << GamePlay::location_map[1] << endl;
-	cout << GamePlay::card_map[21] << endl;
+	
+
+
 
 
 	// TODO: INITIALIZE PLAYERS' CARDS AS WELL AS CASE FILE CARDS
@@ -56,9 +77,12 @@ int main(int argc, char *argv[]){
 	then for 4:21, players[i].add_card(card)
 		where i is player_id.  
 		you'll need to make an "add_card" method for the Player class, 
-		that adds cards to their "hand" attribute (a vector- look up how to append to vector on google).
+		that adds cards to their "hand" attribute (a vector- look up how to append to vector on google if necessary).
 		note that we'll want to support a variable number of players,
 		so their hand lengths may not be the same.
+
+	After this, you'll want to send a message to each player, telling them what cards they drew.
+	You can copy the code from above (the code with string "who_are_you")
 	*/
 
 	cout << "3 cards reserved in the case file." << endl;

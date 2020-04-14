@@ -170,9 +170,6 @@ fd_set Server::connect_all(){
 	int temp_socket, incoming_stream;
 	char buffer[stream_size];
 
-	// initialize fd_set
-	fd_set active_sockets;
-
 	// several starting conditions: max clients or manual start
 	bool running = true;	
 
