@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdlib.h>  
 #include <vector> 
+#include <sstream>
 
 #include <errno.h>  
 #include <unistd.h>
@@ -16,7 +17,8 @@
 #include <sys/socket.h>  
 #include <sys/time.h>
 
-#include <netinet/in.h>  
+#include <netinet/in.h>
+
 
 #define MAX_CLIENTS 6   // one per player
 #define STREAM_SIZE 1024

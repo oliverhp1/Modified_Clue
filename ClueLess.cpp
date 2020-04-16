@@ -1,4 +1,8 @@
+#include "Server.h"
 #include "Player.h"
+#include "GamePlay.h"
+
+
 
 // TODO: pass this as runtime arg instead of hardcoding
 #define PORT 10005
@@ -48,6 +52,8 @@ int main(int argc, char *argv[]){
 
 	for (int i = 0; i < n_clients; i++){
 		players[i].set_player_id(i);	// also sets characters
+		GamePlay::set_player_character(i, players);
+
 		who_are_you = "You are " + players[i].get_character() + "\n";
 		send(
 			socket_tracker[i],
@@ -90,6 +96,8 @@ int main(int argc, char *argv[]){
 
 	// show cards to players once
 
+	// set players as a static attribute of GamePlay
+	// GamePlay::finalize_players(players);
 
 	// finally, this is the main game loop
 	bool game_active = true;
@@ -98,7 +106,7 @@ int main(int argc, char *argv[]){
 	while (game_active){
 		for (int i = 0; i < n_clients; i++){
 			if (in_play[i]){
-				players[i].execute_turn(server);
+				GamePlay::execute_turn(i, server, players);
 					// build gameplay logic into here, or outside of here. either way, need a way to communicate between players.
 				// AND WE NEED TO BROADCAST EVERYTHING AFTER ANYTHING HAPPENS
 
