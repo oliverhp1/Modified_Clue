@@ -119,8 +119,8 @@ void GamePlay::navigate(int player_id, int* socket_tracker, Server server){
 
 
 	// TODO: FIGURE OUT VALID CHOICES TO MOVE TO BEFOREHAND. 
-	// please do this in the Player.cpp file, under execute_turn() method if possible.
-	// you'll probably want to make an attribute (e.g. static attribute in GamePlay) tracking where all locations are.
+	// please do this in the execute_turn() method if possible.
+	// you can get all player positions using the "players" attribute.
 	// for the logic, refer to the diagram and rules in the file describing our class project.
 	// you can use location_map.  store a player's current location in an attribute, 
 	// e.g. player::location (preferably, make it a private attribute and use setter and getter methods),
@@ -130,12 +130,8 @@ void GamePlay::navigate(int player_id, int* socket_tracker, Server server){
 	// 
 	// e.g. "Would you like to move to the " + option1 + " or"... etc
 
-	send(
-		socket_id, 
-		request_location.c_str(), 
-		request_location.size(), 
-		0
-	);
+	// send message to client asking where they'd like to move
+	send(socket_id, request_location.c_str(), request_location.size(), 0);
 
 	// get string representing where player wants to move
 	// location_buffer will store the input the player enters in the console
@@ -144,24 +140,19 @@ void GamePlay::navigate(int player_id, int* socket_tracker, Server server){
 
 	/* TODO: 
 		first check that the choice was valid.
-			can reuse the valid choices you found from earlier
+		maybe can reuse the valid choices you found from earlier (e.g. input them as parameters into this method)
 		then, actually move the player there.
 		do this by updating the player attribute for location
 	*/
 
 
 	// communicate to all other clients
-	string notify_all_clients = "Player " + to_string(player_id) 
+	string move_broadcast = "Player " + to_string(player_id) 
 		+ " is moving to the " + location_buffer + "\n";
 
 	for (int i = 0; i < n_clients; i++){
 		if (i != player_id){
-			send(
-				socket_tracker[i],
-				notify_all_clients.c_str(),
-				notify_all_clients.size(),
-				0
-			);
+			send(socket_tracker[i], move_broadcast.c_str(), move_broadcast.size(), 0);
 		}
 	}
 
@@ -208,12 +199,7 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 			success = true;
 		}
 		else {
-			send(
-				socket_id,
-				invalid_suggestion.c_str(),
-				invalid_suggestion.size(),
-				0
-			);
+			send(socket_id, invalid_suggestion.c_str(), invalid_suggestion.size(), 0);
 		}
 	}
 	
@@ -250,19 +236,9 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 		}
 	}
 	
-
-
-	/* TODO: 
-		actually move the player there.
-		do this by updating the player attribute for location
-	*/
-
-
-
-
-
+	// at this point, we've gotten valid values for a suggestion
 	// communicate to all other clients
-	string notify_all_clients = "Player " + to_string(player_id) 
+	string broadcast_suggestion = "Player " + to_string(player_id) 
 		+ " suggests: " + to_string(location) + ", " 
 		+ player_buffer + ", " + weapon_buffer + "\n";
 
@@ -270,19 +246,85 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 		if (i != player_id){
 			send(
 				socket_tracker[i],
-				notify_all_clients.c_str(),
-				notify_all_clients.size(),
+				broadcast_suggestion.c_str(),
+				broadcast_suggestion.size(),
 				0
 			);
 		}
 	}
 
 	// also output on the server
-	cout << notify_all_clients;
+	cout << broadcast_suggestion;
 
 
-	// finally, loop over all other players
+	// now move the suggested player to relevant location
+	// according to rules, do this regardless of whether player is active
+	if (player_suggestion <= n_clients){
+		players[player_suggestion - 1].set_location(location);
+
+		string move_message = "You are being moved to location " 
+			+ to_string(location) + "\n";
+
+		string broadcast_move = "Player " 
+			+ to_string(player_suggestion - 1) + " is being moved to "
+			+ "location " + to_string(location) + "\n";
+
+		// notify player being moved
+		send(
+			socket_tracker[player_suggestion - 1],
+			move_message.c_str(),
+			move_message.size(),
+			0
+		);
+
+		// notify everyone else
+		for (int i = 0; i < n_clients; i++){
+			if (i != (player_suggestion - 1)){
+				send(
+					socket_tracker[i],
+					broadcast_move.c_str(),
+					broadcast_move.size(),
+					0
+				);
+			}
+		}
+
+		// also notify server
+		cout << broadcast_move;
+	}
+
+
+	// at this point, suggestion was obtained, and player was moved if needed
+
+	// finally, loop over all other players 
+	// (in the same order as turn progression)
 	// when one of them shows any card, break
+	int temp_id;
+	string show_card = "";
+
+	for (int i = 1; i < n_clients; i++){
+		temp_id = (player_id + i) % n_clients;
+
+
+
+		/*
+		if accused card in player's hand
+			if only one
+				show automatically
+				string show_card_broadcast = "Player " + temp_id + " has shown Player " + player_id + " a card\n";
+				string show_card = "Player " + temp_id + " has shown you card " + player_id + " a card\n";
+
+
+
+			else
+				choose which one to show
+		else
+			move on automatically
+
+		*/
+	}
+
+
 
 
 	return 0;
@@ -354,7 +396,6 @@ unordered_map<int, string> GamePlay::card_map;
 
 void GamePlay::populate_location_map(){
 	// unordered_map<int, string> locations;
-
 	location_map[1] = "Study";
 	location_map[2] = "Hallway (Study, Hall)";
 	location_map[3] = "Hall";
@@ -380,6 +421,8 @@ void GamePlay::populate_location_map(){
 }
 
 void GamePlay::populate_card_map(){
+	// using 0 indexed would play better with player_id
+	// but some string - int conversion methods return 0 when invalid
 	card_map[1] = "Miss Scarlet";
 	card_map[2] = "Professor Plum";	
 	card_map[3] = "Mrs. Peacock";
@@ -405,7 +448,6 @@ void GamePlay::populate_card_map(){
 	card_map[21] = "Kitchen";
 
 }
-
 
 
 

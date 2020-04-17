@@ -34,6 +34,8 @@ class Player {
     	bool did_win();
         void set_win();
 
+        static void initialize_map();
+
     	
     	// string getting_accused();	// when another player accuses this player
 
@@ -47,7 +49,9 @@ class Player {
 
     	// since we are allowing any number of players, hands can
     	// vary in size. so a vector is preferable to an array
-    	vector<int> hand; 	
+    	vector<int> hand;
+
+    	static unordered_map<int, int> initial_location_map;
 
 
 

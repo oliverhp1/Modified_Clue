@@ -25,6 +25,8 @@ int main(int argc, char *argv[]){
 	// that work with fd_set don't support initializer lists
 	GamePlay::populate_location_map();
 	GamePlay::populate_card_map();
+	Player::initialize_map();
+
 	cout << GamePlay::location_map[1] << endl;
 	cout << GamePlay::card_map[21] << endl;
 
@@ -55,12 +57,7 @@ int main(int argc, char *argv[]){
 		GamePlay::set_player_character(i, players);
 
 		who_are_you = "You are " + players[i].get_character() + "\n";
-		send(
-			socket_tracker[i],
-			who_are_you.c_str(),
-			who_are_you.size(),
-			0
-		);
+		send(socket_tracker[i], who_are_you.c_str(), who_are_you.size(), 0);
 
 		players[i].set_socket_id(socket_tracker[i]);
 
@@ -75,12 +72,16 @@ int main(int argc, char *argv[]){
 
 
 	// TODO: INITIALIZE PLAYERS' CARDS AS WELL AS CASE FILE CARDS
-	/* something like this:
+	/*  see the card_map defined at the bottom of GamePlay.cpp
+		you'll want one of each of (1 through 6), (7-12), and (13-21) in the case file
+		something like this:
 
 	int case_file[3];
-	random sample numbers 1-21, without replacement
-	stick first 3 in case file
-	then for 4:21, players[i].add_card(card)
+	random sample 6 numbers from numbers 1-6, without replacement (this will serve to shuffle # 1-6)
+		also do 7-12 and 13-21 separately
+	stick the first from each category in case file
+	then shuffle remaining numbers together
+	then, for all remaining cards, players[i].add_card(card)
 		where i is player_id.  
 		you'll need to make an "add_card" method for the Player class, 
 		that adds cards to their "hand" attribute (a vector- look up how to append to vector on google if necessary).
@@ -168,20 +169,10 @@ int main(int argc, char *argv[]){
 
 	for (int i = 0; i < n_clients; i++){
 		if (winner[i]){
-			send(
-				socket_tracker[i], 
-				winner_message.c_str(), 
-				winner_message.size(), 
-				0
-			);
+			send(socket_tracker[i], winner_message.c_str(), winner_message.size(), 0);
 		}
 		else {
-			send(
-				socket_tracker[i], 
-				loser_message.c_str(), 
-				loser_message.size(), 
-				0
-			);
+			send(socket_tracker[i], loser_message.c_str(), loser_message.size(), 0);
 		}
 	}
 	
