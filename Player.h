@@ -30,9 +30,11 @@ class Player {
         int get_location();
         string get_character();
     	
-    	bool is_in_play();	// track accusation logic
+    	// track accusation logic (winning/active)
+    	bool is_in_play();	
     	bool did_win();
         void set_win();
+        void deactivate();
 
         static void initialize_map();
 

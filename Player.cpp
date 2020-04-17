@@ -73,3 +73,10 @@ bool Player::did_win(){
 void Player::set_win(){
 	this->win = true;
 }
+
+void Player::deactivate(){
+	this->in_play = false;
+}
+
+
+

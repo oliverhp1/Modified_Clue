@@ -27,9 +27,6 @@ int main(int argc, char *argv[]){
 	GamePlay::populate_card_map();
 	Player::initialize_map();
 
-	cout << GamePlay::location_map[1] << endl;
-	cout << GamePlay::card_map[21] << endl;
-
 
 	// start up server and get connections
 	int n_clients;
@@ -54,7 +51,7 @@ int main(int argc, char *argv[]){
 
 	for (int i = 0; i < n_clients; i++){
 		players[i].set_player_id(i);	// also sets characters
-		GamePlay::set_player_character(i, players);
+		GamePlay::set_player_character(i, &players[i]);
 
 		who_are_you = "You are " + players[i].get_character() + "\n";
 		send(socket_tracker[i], who_are_you.c_str(), who_are_you.size(), 0);
@@ -76,10 +73,10 @@ int main(int argc, char *argv[]){
 		you'll want one of each of (1 through 6), (7-12), and (13-21) in the case file
 		something like this:
 
-	int case_file[3];
 	random sample 6 numbers from numbers 1-6, without replacement (this will serve to shuffle # 1-6)
 		also do 7-12 and 13-21 separately
 	stick the first from each category in case file
+		use GamePlay::populate_case_file(int card1, int card2, int card3) to put cards in the case file
 	then shuffle remaining numbers together
 	then, for all remaining cards, players[i].add_card(card)
 		where i is player_id.  
@@ -91,6 +88,12 @@ int main(int argc, char *argv[]){
 	After this, you'll want to send a message to each player, telling them what cards they drew.
 	You can copy the code from above (the code with string "who_are_you")
 	*/
+
+
+	// PLACEHOLDER: REMOVE THIS WHEN THE ABOVE IS IMPLEMENTED
+		// note that you can put the inputs in any order. the method will sort it automatically
+	GamePlay::populate_case_file(15, 7, 1);
+
 
 	cout << "3 cards reserved in the case file." << endl;
 	cout << "Remaining 18 cards shuffled out to all players\n" << endl;
@@ -107,6 +110,18 @@ int main(int argc, char *argv[]){
 	while (game_active){
 		for (int i = 0; i < n_clients; i++){
 			if (in_play[i]){
+				// last one standing wins
+				// check before executing next turn
+				if (players_remaining == 1){
+					for (int j = 0; j < n_clients; j++){
+						winner[i] = in_play[i];
+					}
+					
+					game_active = false;
+					break;
+				}
+
+
 				GamePlay::execute_turn(i, server, players);
 					// build gameplay logic into here, or outside of here. either way, need a way to communicate between players.
 				// AND WE NEED TO BROADCAST EVERYTHING AFTER ANYTHING HAPPENS
@@ -126,19 +141,6 @@ int main(int argc, char *argv[]){
 					// changed from in play to not in play
 					players_remaining--;
 				}
-
-				if (players_remaining == 1){
-					// last one standing wins
-					// check right after anybody is removed
-					for (int j = 0; j < n_clients; j++){
-						winner[i] = in_play[i];
-					}
-					
-					game_active = false;
-					break;
-				}
-
-
 
 			}
 		}

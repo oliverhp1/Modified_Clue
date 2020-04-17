@@ -61,12 +61,7 @@ void GamePlay::execute_turn(int player_id, Server server, Player* players){
 	int* socket_tracker = server.get_socket_tracker();
 	int socket_id = socket_tracker[player_id];
 	
-	send(
-		socket_id, 
-		message.c_str(), 
-		message.size(), 
-		0
-	);
+	send(socket_id, message.c_str(), message.size(), 0);
 
 	// get response
 	bool turn_complete = false;
@@ -86,7 +81,7 @@ void GamePlay::execute_turn(int player_id, Server server, Player* players){
 			suggest(player_id, socket_tracker, server, players);
 		}
 		else if (action_buffer.compare("accuse") == 0){
-			accuse(player_id, socket_tracker, server);
+			accuse(player_id, socket_tracker, server, &players[player_id]);
 		}
 		else if (action_buffer.compare("pass") == 0){
 			pass(player_id, socket_tracker, server);
@@ -157,7 +152,7 @@ void GamePlay::navigate(int player_id, int* socket_tracker, Server server){
 	}
 
 	// also output on the server
-	cout << notify_all_clients;
+	cout << move_broadcast;
 	return;
 
 }
@@ -173,83 +168,27 @@ void GamePlay::navigate(int player_id, int* socket_tracker, Server server){
 int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player* players){
 	int socket_id = socket_tracker[player_id];
 	int n_clients = server.get_n_clients();
-	int player_suggestion, weapon_suggestion;
-	string player_buffer, weapon_buffer;
+	int player_suggestion, weapon_suggestion, suggested_id;
 
 	int location = players[player_id].get_location();
 
 
-	// get player's suggestion for character
-	bool success = false;
-
-	while (!success){
-		send(
-			socket_id, 
-			request_player.c_str(), 
-			request_player.size(), 
-			0
-		);
-
-		player_buffer = server.receive_communication(socket_id);
-		istringstream(player_buffer) >> player_suggestion;
-
-		// validate input (with the GUI this will probably not be necessary,
-		// it will be a conditional based on where the player clicks)
-		if ((player_suggestion > 0) && (player_suggestion < 7)){
-			success = true;
-		}
-		else {
-			send(socket_id, invalid_suggestion.c_str(), invalid_suggestion.size(), 0);
-		}
-	}
-	
-	// get player's suggestion for weapon
-	success = false;
-	while (!success){
-		send(
-			socket_id, 
-			request_weapon.c_str(), 
-			request_weapon.size(), 
-			0
-		);
-
-		weapon_buffer = server.receive_communication(socket_id);
-		istringstream(weapon_buffer) >> weapon_suggestion;
+	// get player's suggestions (also checks for valid input)
+	player_suggestion = get_bounded_input(socket_id, server, request_player, 1, 6);
+	weapon_suggestion = get_bounded_input(socket_id, server, request_weapon, 7, 12);
 
 
-		// validate input
-		if ((weapon_suggestion > 6) && (weapon_suggestion < 13)){
-			success = true;
-		}
-
-		
-
-		else {
-			string please = weapon_buffer + " is invalid\n\t";
-		
-			send(
-				socket_id,
-				please.c_str(),
-				please.size(),
-				0
-			);
-		}
-	}
-	
 	// at this point, we've gotten valid values for a suggestion
 	// communicate to all other clients
-	string broadcast_suggestion = "Player " + to_string(player_id) 
-		+ " suggests: " + to_string(location) + ", " 
-		+ player_buffer + ", " + weapon_buffer + "\n";
+	string broadcast_suggestion = 
+		"Player " + to_string(player_id) + " suggests: " 
+		+ to_string(location) + ", " 
+		+ to_string(player_suggestion) + ", " 
+		+ to_string(weapon_suggestion) + "\n";
 
 	for (int i = 0; i < n_clients; i++){
 		if (i != player_id){
-			send(
-				socket_tracker[i],
-				broadcast_suggestion.c_str(),
-				broadcast_suggestion.size(),
-				0
-			);
+			send(socket_tracker[i], broadcast_suggestion.c_str(), broadcast_suggestion.size(), 0);
 		}
 	}
 
@@ -259,33 +198,25 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 
 	// now move the suggested player to relevant location
 	// according to rules, do this regardless of whether player is active
-	if (player_suggestion <= n_clients){
-		players[player_suggestion - 1].set_location(location);
+	suggested_id = player_suggestion - 1;
+
+	if ((suggested_id < n_clients) && (suggested_id != player_id)){
+		players[suggested_id].set_location(location);
 
 		string move_message = "You are being moved to location " 
 			+ to_string(location) + "\n";
 
 		string broadcast_move = "Player " 
-			+ to_string(player_suggestion - 1) + " is being moved to "
+			+ to_string(suggested_id) + " is being moved to "
 			+ "location " + to_string(location) + "\n";
 
 		// notify player being moved
-		send(
-			socket_tracker[player_suggestion - 1],
-			move_message.c_str(),
-			move_message.size(),
-			0
-		);
+		send(socket_tracker[suggested_id], move_message.c_str(), move_message.size(), 0);
 
 		// notify everyone else
 		for (int i = 0; i < n_clients; i++){
-			if (i != (player_suggestion - 1)){
-				send(
-					socket_tracker[i],
-					broadcast_move.c_str(),
-					broadcast_move.size(),
-					0
-				);
+			if (i != (suggested_id)){
+				send(socket_tracker[i], broadcast_move.c_str(), broadcast_move.size(), 0);
 			}
 		}
 
@@ -308,18 +239,16 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 
 
 		/*
-		if accused card in player's hand
+		if any of suggested cards are in player's hand:
 			if only one
 				show automatically
 				string show_card_broadcast = "Player " + temp_id + " has shown Player " + player_id + " a card\n";
 				string show_card = "Player " + temp_id + " has shown you card " + player_id + " a card\n";
 
-
-
-			else
+			else (if multiple)
 				choose which one to show
-		else
-			move on automatically
+		else (none)
+			move on automatically, and broadcast
 
 		*/
 	}
@@ -332,10 +261,69 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 
 
 
+// at the end of this, the relevant player will either win
+// or be deactivated.
+void GamePlay::accuse(int player_id, int* socket_tracker, Server server, Player* player){
+	int socket_id = socket_tracker[player_id];
+	int n_clients = server.get_n_clients();
+	int accused_player, accused_weapon, accused_location;
+	
+	
+	// get player's accusations
+	accused_player = get_bounded_input(socket_id, server, request_player, 1, 6);
+	accused_location = get_bounded_input(socket_id, server, accuse_location, 13, 21);
+	accused_weapon = get_bounded_input(socket_id, server, request_weapon, 7, 12);
 
-int GamePlay::accuse(int player_id, int* socket_tracker, Server server){
-	cout << "not implemented yet" << endl;
-	return 0;
+
+	
+	// at this point, we've gotten valid values for the accusation
+	// communicate to all other clients
+	string accuse_broadcast = 
+		"Player " + to_string(player_id) + " accuses: " 
+		+ to_string(accused_player) + ", " 
+		+ to_string(accused_location) + ", "
+		+ to_string(accused_weapon) + "\n";
+
+
+	for (int i = 0; i < n_clients; i++){
+		if (i != player_id){
+			send(socket_tracker[i], accuse_broadcast.c_str(), accuse_broadcast.size(), 0);
+		}
+	}
+	// also output on the server
+	cout << accuse_broadcast;
+
+
+	// show accusing player the case file
+	send(socket_id, case_file_string.c_str(), case_file_string.size(), 0);
+
+	// now check correctness
+	if ((accused_player != case_file[0]) 
+		|| (accused_weapon != case_file[1]) 
+		|| (accused_location != case_file[2])){
+
+		// if any are wrong, deactivate player and notify everyone
+		send(socket_id, wrong_accusation.c_str(), wrong_accusation.size(), 0);
+		player->deactivate();
+
+		string deactivated = 
+			"Player " + to_string(player_id) + " incorrect; deactivated.\n";
+
+		for (int i = 0; i < n_clients; i++){
+			if (i != player_id){
+				send(socket_tracker[i], deactivated.c_str(), deactivated.size(), 0);
+			}
+		}
+		cout << deactivated;
+	}
+	else {
+		// otherwise, just set the winning condition
+		player->set_win();
+	}
+
+
+
+	return;
 }
 
 
@@ -343,52 +331,103 @@ int GamePlay::accuse(int player_id, int* socket_tracker, Server server){
 // calling this will let you bypass that option
 void GamePlay::pass(int player_id, int* socket_tracker, Server server){
 	// just communicate to all other clients
-	string notify_all_clients = "Player " + to_string(player_id) 
+	string pass_broadcast = "Player " + to_string(player_id) 
 		+ "\'s turn has ended.\n";
 
 	for (int i = 0; i < server.get_n_clients(); i++){
 		if (i != player_id){
-			send(
-				socket_tracker[i],
-				notify_all_clients.c_str(),
-				notify_all_clients.size(),
-				0
-			);
+			send(socket_tracker[i], pass_broadcast.c_str(), pass_broadcast.size(), 0);
 		}
 	}
 
 	// also output on the server
-	cout << notify_all_clients;
+	cout << pass_broadcast;
 	return;
 }
 
 
 
-string GamePlay::getting_accused(int player_id, int* socket_tracker){
-	cout << "not implemented yet" << endl;
-	return 0;
+// string GamePlay::getting_accused(int player_id, int* socket_tracker){
+// 	cout << "not implemented yet" << endl;
+// 	return 0;
+// }
+
+
+
+
+// remaining attributes/methods are largely helpers
+int GamePlay::get_bounded_input(int socket_id, Server server, string message, int lo, int hi){
+	string buffer;
+	int output;
+
+	bool success = false;
+	while (!success){
+		send(socket_id, message.c_str(), message.size(), 0);
+
+		buffer = server.receive_communication(socket_id);
+		istringstream(buffer) >> output;
+
+		// validate input (with the GUI this will probably not be necessary,
+		// it will be a conditional based on where the player clicks)
+		if ((output >= lo) && (output <= hi)){
+			success = true;
+		}
+		else {
+			send(socket_id, invalid_input.c_str(), invalid_input.size(), 0);
+		}
+	}
+
+	return output;
 }
 
 
-void GamePlay::set_player_character(int player_id, Player* players){
-	players[player_id].set_character(card_map[player_id + 1]);
+
+void GamePlay::set_player_character(int player_id, Player* player){
+	player->set_character(card_map[player_id + 1]);
 }
         
 
 
 // other static attributes
 string GamePlay::request_location = "Where would you like to move?\n\t";
-string GamePlay::request_player = "Who would you like to suggest?\n\t";
+string GamePlay::request_player = "Who do you think committed the crime?\n\t";
+string GamePlay::accuse_location = "In what room?\n\t";
 string GamePlay::request_weapon = "With what weapon?\n\t";
-string GamePlay::invalid_suggestion = "Invalid suggestion, try again:\n\t";
+string GamePlay::invalid_input = "Invalid input, try again:\n\t";
+
+string GamePlay::wrong_accusation = "You guessed incorrectly; deactivating...\n";
+// string GamePlay::invalid_accusation = "Invalid accusation, try again:\n\t";
 
 
-// it'd be nice tostore players here so we don't have to pass it back and forth
+
+// it'd be nice to store players here so we don't have to pass it back and forth
 // when executing gameplay logic
 // but circular includes and forward declarations don't work with this logic
 // void GamePlay::finalize_players(Player *final_players){
 // 	players = final_players;
 // }
+
+
+// maintain case file
+int GamePlay::case_file[3];
+string GamePlay::case_file_string;
+
+void GamePlay::populate_case_file(int card1, int card2, int card3){
+	case_file[0] = card1;
+	case_file[1] = card2;
+	case_file[2] = card3;
+
+	// sort so cards are ordered by player, weapon, location
+	int n = sizeof(case_file)/sizeof(case_file[0]);
+    sort(case_file, case_file + n);
+
+    case_file_string = "Case file: " 
+    	+ to_string(case_file[0]) + ", "
+    	+ to_string(case_file[1]) + ", " 
+    	+ to_string(case_file[2]) + "\n";
+}
+
+
 
 // store and populate maps for relevant functions here
 unordered_map<int, string> GamePlay::location_map;
