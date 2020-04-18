@@ -111,7 +111,7 @@ int main(int argc, char *argv[]){
 		for (int i = 0; i < n_clients; i++){
 			if (in_play[i]){
 				// last one standing wins
-				// check before executing next turn
+				// check before executing turn
 				if (players_remaining == 1){
 					for (int j = 0; j < n_clients; j++){
 						winner[i] = in_play[i];
@@ -121,10 +121,8 @@ int main(int argc, char *argv[]){
 					break;
 				}
 
-
+				// most turn logic encapsulated here
 				GamePlay::execute_turn(i, server, players);
-					// build gameplay logic into here, or outside of here. either way, need a way to communicate between players.
-				// AND WE NEED TO BROADCAST EVERYTHING AFTER ANYTHING HAPPENS
 
 
 				in_play[i] = players[i].is_in_play();

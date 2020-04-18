@@ -33,9 +33,15 @@ class GamePlay {
 
         // helper methods
         static int get_bounded_input(
-        	int socket_id, Server server, string message, int lo, int hi
+        	int, Server, string, int, int
         );
+
+        // gets valid string from outputs, then executes corresponding move
+    	static void bounded_move(
+    		int, int*, Server, string, string[], Player*
+		);
     	
+
 
         // set player attributes
         static void set_player_character(int, Player*);
@@ -46,19 +52,25 @@ class GamePlay {
         static void populate_case_file(int, int, int);
 
         // set up maps for relevant functionality
-        static unordered_map<int, string> location_map;
-        static unordered_map<int, string> card_map;
+        static unordered_map<int, string> location_map, card_map;
+        // static unordered_map<int, string> ;
 
         static void populate_location_map();
         static void populate_card_map();
 
         // helper strings for communication
-        static string request_location;
-        static string request_player;
-        static string request_weapon;
-        static string accuse_location;
-        static string invalid_input;
-        static string wrong_accusation;
+        static string request_location, request_player, request_weapon;
+        static string accuse_location, wrong_accusation;
+
+        static string navigate_stay_str, suggest_accuse_str, accuse_pass_str;
+		static string start_str, force_navigate_str;
+		static string check_hand, check_state;
+		
+		
+		static string invalid_input;
+
+		static string navigate_stay[], suggest_accuse[], accuse_pass[];
+        
 
 
 

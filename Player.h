@@ -27,8 +27,12 @@ class Player {
         void set_location(int);
         void set_character(string);
 
+        bool get_just_suggested();
+        void set_just_suggested(bool);
+
         int get_location();
         string get_character();
+
     	
     	// track accusation logic (winning/active)
     	bool is_in_play();	
@@ -46,6 +50,7 @@ class Player {
     	int player_id, socket_id;
         int location;   // corresponds to the 'location' map in gameplay
     	bool in_play, win;	// if player has made accusation, update these
+    	bool just_suggested;	// if yes, they're always allowed to suggest
 
         string character;
 

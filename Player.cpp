@@ -5,7 +5,8 @@
 Player::Player() {
 	this->in_play = true;
 	this->win = false;
-
+	this->just_suggested = false;
+	
 }
 
 
@@ -53,6 +54,14 @@ void Player::set_character(string character){
 
 void Player::set_location(int location){
 	this->location = location;
+}
+
+void Player::set_just_suggested(bool just_suggested){
+	this->just_suggested = just_suggested;
+}
+
+bool Player::get_just_suggested(){
+	return this->just_suggested;
 }
 
 int Player::get_location(){

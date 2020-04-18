@@ -47,60 +47,106 @@ using namespace std;
 */
 
 void GamePlay::execute_turn(int player_id, Server server, Player* players){
-	// ask what player wants to do
-	string message = "Your turn.  \n"
-		"Do you want to navigate, suggest, accuse, or pass?\r\n\t";
-
-	string invalid_choice = "Invalid choice. Choose again: \n\t";
-
-
-	// should add an option here to check hand again
-	// also perhaps to check all player locations
-	
-
 	int* socket_tracker = server.get_socket_tracker();
 	int socket_id = socket_tracker[player_id];
+
+	// OVERALL FLOW
+	/*
+		0. 	Check game state (and/or hand)
+		1. 	Check for valid places player can move
+			these are adjacent spaces not blocked by other players, or secret passageways
+		2. 	IF player has options to move, 
+				IF they were just suggested, they are allowed to stay or move
+				otherwise, they have to move
+	  	   	ELSE no valid places to move.  
+	  	   		IF they were just suggested, they are allowed to suggest
+				ELSE they have no options but accuse and pass
+		3. 	Whenever player is done moving:
+				if player just moved into a room, OR they were just moved via a suggestion, they get to suggest
+				if they did not move AND they were not just moved via a suggestion, they don't get to suggest
+		4. 	Now player is done suggesting (if possible)
+			Only accuse or pass remain.
+		
+		(postscript)
+			at the end of the turn, set the player's just_suggested attribute to false.
+	*/
 	
-	send(socket_id, message.c_str(), message.size(), 0);
+	// temp placeholder; build together with navigation logic later
+	bool any_valid_moves = true;
 
-	// get response
-	bool turn_complete = false;
+	bool direct_accuse = false;
+	bool direct_pass = false;
 
-	while (!turn_complete){
-		turn_complete = true;	// assume it passes; modify otherwise
+	// check hand and locations here
+	send(socket_id, start_str.c_str(), start_str.size(), 0);
+	send(socket_id, check_hand.c_str(), check_hand.size(), 0);
+	send(socket_id, check_state.c_str(), check_state.size(), 0);
 
-		string action_buffer = server.receive_communication(socket_id);
 
-		// switch case would be nice, but strings are not supported
-		// perhaps pass in ints later when we use the GUI, then we can do switch case
+	// string move;
 
-		if (action_buffer.compare("navigate") == 0){
-			navigate(player_id, socket_tracker, server);
-		}
-		else if (action_buffer.compare("suggest") == 0){
-			suggest(player_id, socket_tracker, server, players);
-		}
-		else if (action_buffer.compare("accuse") == 0){
-			accuse(player_id, socket_tracker, server, &players[player_id]);
-		}
-		else if (action_buffer.compare("pass") == 0){
-			pass(player_id, socket_tracker, server);
-		}
-		else if (action_buffer.compare("I win") == 0){
-			players[player_id].set_win();
-		}
-		else {
-			turn_complete = false;
+
+	// there's 4 possibilities: 2x2 of (any valid moves) x (just got suggested)
+	// if (any_valid_moves){
+	// 	if (players[player_id].get_just_suggested()){
+	// 		send(socket_id, navigate_stay_str.c_str(), navigate_stay_str.size(), 0);
+	// 		// navigate or stay logic
+
+
+	// 		if (player in room){
+	// 			send(socket_id, suggest_accuse_str.c_str(), suggest_accuse_str.size(), 0);
+	// 			// suggest, accuse, or pass logic
+
+	// 			// then, if suggested, accuse or pass options again
+	// 		}
+	// 		else {
+	// 			send(socket_id, accuse_pass_str.c_str(), accuse_pass_str.size(), 0);
+	// 			// accuse or pass logic 
+	// 		}
+
 			
-			send(
-				socket_id,
-				invalid_choice.c_str(),
-				invalid_choice.size(),
-				0
-			);
-		}
+	// 	}
+	// 	else {
+	// 		// force them to navigate
+
+	// 		// then suggest (only if in room), accuse, or pass
+	// 		// if suggested, accuse or pass again
+	// 	}
+
+	// }
+	// else {	// no valid moves possible
+	// 	if (players[player_id].get_just_suggested()){
+	// 		// ask if they wanna suggest, accuse, or pass
+
+	// 		// then: if they suggested
+	// 		// ask if they wanna accuse or pass
+	// 	}
+	// 	else {
+	// 		// (say no valid moves)
+	// 		// directly go to accuse or pass
+	// 	}
+	// }
+
+	// handle accuse/pass outside the structure, 
+	// since each path has the same logic
+	if (direct_accuse){
+		accuse(player_id, socket_tracker, server, &players[player_id]);
+	}
+	else if (direct_pass){
+		pass(player_id, socket_tracker, server);
+	}
+	else {
+		// get player option for accuse or pass
+		// before executing
+		bounded_move(
+			player_id, socket_tracker, server, 
+			accuse_pass_str, accuse_pass, players
+		);
 	}
 
+
+	
+	// and that's it.
 
 	return ;
 }
@@ -202,6 +248,8 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 
 	if ((suggested_id < n_clients) && (suggested_id != player_id)){
 		players[suggested_id].set_location(location);
+		players[suggested_id].set_just_suggested(true);
+
 
 		string move_message = "You are being moved to location " 
 			+ to_string(location) + "\n";
@@ -261,8 +309,7 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 
 
 
-// at the end of this, the relevant player will either win
-// or be deactivated.
+// at the end of this, the relevant player will either win or be deactivated
 void GamePlay::accuse(int player_id, int* socket_tracker, Server server, Player* player){
 	int socket_id = socket_tracker[player_id];
 	int n_clients = server.get_n_clients();
@@ -380,6 +427,71 @@ int GamePlay::get_bounded_input(int socket_id, Server server, string message, in
 	return output;
 }
 
+// check for valid move from a string array, then execute the move
+// this is not ideal, but separating validation and execution isn't great either
+// as the executing method will not be very useful on its own
+void GamePlay::bounded_move(int player_id, int* socket_tracker, 
+		Server server, string message, string outputs[], Player* players){
+	
+	int socket_id = socket_tracker[player_id];
+	string action;
+
+	bool success = false;
+	int i = 0;
+
+	while (!success){
+		send(socket_id, message.c_str(), message.size(), 0);
+
+		action = server.receive_communication(socket_id);
+
+
+		// validate input (with the GUI this will probably not be necessary,
+		// it will be a conditional based on where the player clicks)
+		while (true){
+			if (outputs[i].compare("") == 0){
+				// reached end of output array
+				break;
+			}
+			
+			if (action.compare(outputs[i]) == 0){
+				// if any are present, selection is valid
+				success = true;
+				break;
+			}
+
+			i++;
+		}
+		
+		if (!success){
+		    send(socket_id, invalid_input.c_str(), invalid_input.size(), 0);
+		}
+	}
+
+
+	// we've gotten valid action; execute corresponding method
+	if (action.compare("navigate") == 0){
+		navigate(player_id, socket_tracker, server);
+	}
+	else if (action.compare("suggest") == 0){
+		suggest(player_id, socket_tracker, server, players);
+	}
+	else if (action.compare("accuse") == 0){
+		accuse(player_id, socket_tracker, server, &players[player_id]);
+	}
+	else if (action.compare("pass") == 0){
+		pass(player_id, socket_tracker, server);
+	}
+	else {
+		// data validation did not output valid action
+		cerr << "Invalid action not caught by data validation: " 
+			 << action << endl;
+		exit(1);
+	}
+
+	return;
+}
+
+
 
 
 void GamePlay::set_player_character(int player_id, Player* player){
@@ -393,10 +505,27 @@ string GamePlay::request_location = "Where would you like to move?\n\t";
 string GamePlay::request_player = "Who do you think committed the crime?\n\t";
 string GamePlay::accuse_location = "In what room?\n\t";
 string GamePlay::request_weapon = "With what weapon?\n\t";
+
+// all used in execute_turn
+string GamePlay::start_str = "Your turn.  \n";
+string GamePlay::navigate_stay_str = "Do you want to navigate or stay?\r\n\t";
+string GamePlay::suggest_accuse_str = "Do you want to suggest, accuse, or pass?\r\n\t";
+string GamePlay::accuse_pass_str = "Do you want to accuse or pass?\r\n\t";
+string GamePlay::force_navigate_str = "You must move from current location\r\n\t";
+string GamePlay::check_hand = "Check hand? [y]/[n]: ";
+string GamePlay::check_state = "Check player locations? [y]/[n]: ";
+
 string GamePlay::invalid_input = "Invalid input, try again:\n\t";
 
 string GamePlay::wrong_accusation = "You guessed incorrectly; deactivating...\n";
-// string GamePlay::invalid_accusation = "Invalid accusation, try again:\n\t";
+
+
+// for validating inputs (probably won't need this with a GUI)
+// these terminating strings are not great, but it's impossible to
+// determine the size of an array using its pointer
+string GamePlay::navigate_stay[] = {"navigate", "stay", ""};
+string GamePlay::suggest_accuse[] = {"suggest", "accuse", "pass", ""};
+string GamePlay::accuse_pass[] = {"accuse", "pass", ""};
 
 
 
