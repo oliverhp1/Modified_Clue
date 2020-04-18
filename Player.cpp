@@ -20,8 +20,8 @@ Player::Player() {
 // need a separate method to initialize because of compiler version conflicts
 unordered_map<int, int> Player::initial_location_map;
 
-void Player::initialize_map(){
-	initial_location_map[0] = 4;	// p0, scarlet, (hall/lounge)
+void Player::initialize_map(){			// TESTING: SCARLET STARTS IN STUDY
+	initial_location_map[0] = 1;	// p0, scarlet, (hall/lounge)
 	initial_location_map[1] = 6;	// p1, plum, (study/library)
 	initial_location_map[2] = 14;	// p2, peacock, (library/conservatory)
 	initial_location_map[3] = 18;	// p3, green, (conservatory/ballroom)
@@ -67,6 +67,7 @@ bool Player::get_just_suggested(){
 int Player::get_location(){
 	return this->location;
 }
+
 string Player::get_character(){
 	return this->character;
 }

@@ -40,6 +40,9 @@ class GamePlay {
     	static void bounded_move(
     		int, int*, Server, string, string[], Player*
 		);
+
+		static string get_valid_move(int, Server, string, string[]);
+		static void call_valid_move(int, int*, Server, string, Player*);
     	
 
 
@@ -51,6 +54,12 @@ class GamePlay {
         static string case_file_string;
         static void populate_case_file(int, int, int);
 
+
+        // for determining whether player is in a room
+        static int all_rooms[];
+        static bool in_room(Player*);
+
+
         // set up maps for relevant functionality
         static unordered_map<int, string> location_map, card_map;
         // static unordered_map<int, string> ;
@@ -58,12 +67,13 @@ class GamePlay {
         static void populate_location_map();
         static void populate_card_map();
 
+
         // helper strings for communication
         static string request_location, request_player, request_weapon;
         static string accuse_location, wrong_accusation;
 
         static string navigate_stay_str, suggest_accuse_str, accuse_pass_str;
-		static string start_str, force_navigate_str;
+		static string start_str, force_navigate_str, force_stay_str;
 		static string check_hand, check_state;
 		
 		

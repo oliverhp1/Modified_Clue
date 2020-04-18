@@ -49,27 +49,9 @@ using namespace std;
 void GamePlay::execute_turn(int player_id, Server server, Player* players){
 	int* socket_tracker = server.get_socket_tracker();
 	int socket_id = socket_tracker[player_id];
+	Player* player = &players[player_id];
 
-	// OVERALL FLOW
-	/*
-		0. 	Check game state (and/or hand)
-		1. 	Check for valid places player can move
-			these are adjacent spaces not blocked by other players, or secret passageways
-		2. 	IF player has options to move, 
-				IF they were just suggested, they are allowed to stay or move
-				otherwise, they have to move
-	  	   	ELSE no valid places to move.  
-	  	   		IF they were just suggested, they are allowed to suggest
-				ELSE they have no options but accuse and pass
-		3. 	Whenever player is done moving:
-				if player just moved into a room, OR they were just moved via a suggestion, they get to suggest
-				if they did not move AND they were not just moved via a suggestion, they don't get to suggest
-		4. 	Now player is done suggesting (if possible)
-			Only accuse or pass remain.
-		
-		(postscript)
-			at the end of the turn, set the player's just_suggested attribute to false.
-	*/
+
 	
 	// temp placeholder; build together with navigation logic later
 	bool any_valid_moves = true;
@@ -77,77 +59,88 @@ void GamePlay::execute_turn(int player_id, Server server, Player* players){
 	bool direct_accuse = false;
 	bool direct_pass = false;
 
-	// check hand and locations here
 	send(socket_id, start_str.c_str(), start_str.size(), 0);
+
+	// check hand and locations here
 	send(socket_id, check_hand.c_str(), check_hand.size(), 0);
+
 	send(socket_id, check_state.c_str(), check_state.size(), 0);
 
 
-	// string move;
+	string move;
 
 
 	// there's 4 possibilities: 2x2 of (any valid moves) x (just got suggested)
-	// if (any_valid_moves){
-	// 	if (players[player_id].get_just_suggested()){
-	// 		send(socket_id, navigate_stay_str.c_str(), navigate_stay_str.size(), 0);
-	// 		// navigate or stay logic
+	// 3 of them (all except (no valid moves) x (not just suggested))
+	// will have the same suggest/accuse/pass at the end, so 
+	// to reduce duplicated code, stick them together
+	// the final block (no valid moves) x (not just suggested)
+	// goes directly to accuse/pass
+	if (any_valid_moves || player->get_just_suggested()){
+		if (~player->get_just_suggested()){
+			// force them to navigate
+			send(socket_id, force_navigate_str.c_str(), 
+				 force_navigate_str.size(), 0);
 
+			navigate(player_id, socket_tracker, server);
+		}
+		else if (any_valid_moves){
+			// this implies they were just suggested
+			// so they're allowed to stay if desired
+			move = get_valid_move(socket_id, server, 
+				navigate_stay_str, navigate_stay);
 
-	// 		if (player in room){
-	// 			send(socket_id, suggest_accuse_str.c_str(), suggest_accuse_str.size(), 0);
-	// 			// suggest, accuse, or pass logic
+			call_valid_move(player_id, socket_tracker, server, move, players);
+		}
+		else {
+			// just suggested and no valid moves
+			send(socket_id, force_stay_str.c_str(), 
+				 force_stay_str.size(), 0);
+		}
 
-	// 			// then, if suggested, accuse or pass options again
-	// 		}
-	// 		else {
-	// 			send(socket_id, accuse_pass_str.c_str(), accuse_pass_str.size(), 0);
-	// 			// accuse or pass logic 
-	// 		}
+		// navigation is finished at this point (if possible)
+		// now they can suggest/pass/accuse
+		if (in_room(player)){
+			// suggest, accuse, or pass logic
+			move = get_valid_move(socket_id, server, 
+				suggest_accuse_str, suggest_accuse);
+			call_valid_move(player_id, socket_tracker, server, move, players);
 
 			
-	// 	}
-	// 	else {
-	// 		// force them to navigate
+			// then, if suggested, accuse or pass options again
+			if (move.compare("suggest") == 0){
+				move = get_valid_move(socket_id, server, 
+					accuse_pass_str, accuse_pass);
 
-	// 		// then suggest (only if in room), accuse, or pass
-	// 		// if suggested, accuse or pass again
-	// 	}
+				call_valid_move(player_id, socket_tracker, server, move, players);
+			}
+		}
+		else {
+			// directly accuse or pass if not in room
+			move = get_valid_move(socket_id, server, 
+				accuse_pass_str, accuse_pass);
 
-	// }
-	// else {	// no valid moves possible
-	// 	if (players[player_id].get_just_suggested()){
-	// 		// ask if they wanna suggest, accuse, or pass
+			call_valid_move(player_id, socket_tracker, server, move, players);
+			
+		}
 
-	// 		// then: if they suggested
-	// 		// ask if they wanna accuse or pass
-	// 	}
-	// 	else {
-	// 		// (say no valid moves)
-	// 		// directly go to accuse or pass
-	// 	}
-	// }
-
-	// handle accuse/pass outside the structure, 
-	// since each path has the same logic
-	if (direct_accuse){
-		accuse(player_id, socket_tracker, server, &players[player_id]);
 	}
-	else if (direct_pass){
-		pass(player_id, socket_tracker, server);
-	}
-	else {
-		// get player option for accuse or pass
-		// before executing
-		bounded_move(
-			player_id, socket_tracker, server, 
-			accuse_pass_str, accuse_pass, players
-		);
-	}
+	else {	// no valid moves AND not just suggested
+		send(socket_id, force_stay_str.c_str(), 
+			 force_stay_str.size(), 0);	
 
+		// directly accuse or pass
+		move = get_valid_move(socket_id, server, 
+			accuse_pass_str, accuse_pass);
+
+		call_valid_move(player_id, socket_tracker, server, move, players);
+	}
 
 	
-	// and that's it.
+	// set just_suggested attribute to false at end of turn
+	player->set_just_suggested(false);
 
+	// and that's it.
 	return ;
 }
 
@@ -228,7 +221,7 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 	// communicate to all other clients
 	string broadcast_suggestion = 
 		"Player " + to_string(player_id) + " suggests: " 
-		+ to_string(location) + ", " 
+		+ location_maplocation] + ", " 
 		+ to_string(player_suggestion) + ", " 
 		+ to_string(weapon_suggestion) + "\n";
 
@@ -427,13 +420,10 @@ int GamePlay::get_bounded_input(int socket_id, Server server, string message, in
 	return output;
 }
 
-// check for valid move from a string array, then execute the move
-// this is not ideal, but separating validation and execution isn't great either
-// as the executing method will not be very useful on its own
-void GamePlay::bounded_move(int player_id, int* socket_tracker, 
-		Server server, string message, string outputs[], Player* players){
+// get input that is contained within a string array
+string GamePlay::get_valid_move(int socket_id, Server server, 
+		string message, string outputs[]){
 	
-	int socket_id = socket_tracker[player_id];
 	string action;
 
 	bool success = false;
@@ -464,11 +454,18 @@ void GamePlay::bounded_move(int player_id, int* socket_tracker,
 		
 		if (!success){
 		    send(socket_id, invalid_input.c_str(), invalid_input.size(), 0);
+
+		    // reset loop
+		    i = 0;
 		}
 	}
 
+	return action;
+}
 
-	// we've gotten valid action; execute corresponding method
+void GamePlay::call_valid_move(int player_id, int* socket_tracker,
+		Server server, string action, Player* players){
+		// we've gotten valid action; execute corresponding method
 	if (action.compare("navigate") == 0){
 		navigate(player_id, socket_tracker, server);
 	}
@@ -484,7 +481,8 @@ void GamePlay::bounded_move(int player_id, int* socket_tracker,
 	else {
 		// data validation did not output valid action
 		cerr << "Invalid action not caught by data validation: " 
-			 << action << endl;
+			 << action 
+			 << "; call get_valid_move before this method" << endl;
 		exit(1);
 	}
 
@@ -501,21 +499,22 @@ void GamePlay::set_player_character(int player_id, Player* player){
 
 
 // other static attributes
-string GamePlay::request_location = "Where would you like to move?\n\t";
-string GamePlay::request_player = "Who do you think committed the crime?\n\t";
-string GamePlay::accuse_location = "In what room?\n\t";
-string GamePlay::request_weapon = "With what weapon?\n\t";
+string GamePlay::request_location = "Where would you like to move?\r\n\t";
+string GamePlay::request_player = "Who do you think committed the crime?\r\n\t";
+string GamePlay::accuse_location = "In what room?\r\n\t";
+string GamePlay::request_weapon = "With what weapon?\r\n\t";
 
 // all used in execute_turn
 string GamePlay::start_str = "Your turn.  \n";
 string GamePlay::navigate_stay_str = "Do you want to navigate or stay?\r\n\t";
 string GamePlay::suggest_accuse_str = "Do you want to suggest, accuse, or pass?\r\n\t";
 string GamePlay::accuse_pass_str = "Do you want to accuse or pass?\r\n\t";
-string GamePlay::force_navigate_str = "You must move from current location\r\n\t";
+string GamePlay::force_navigate_str = "You must move from current location\r\n";
+string GamePlay::force_stay_str = "You have no valid moves\r\n\t";
 string GamePlay::check_hand = "Check hand? [y]/[n]: ";
 string GamePlay::check_state = "Check player locations? [y]/[n]: ";
 
-string GamePlay::invalid_input = "Invalid input, try again:\n\t";
+string GamePlay::invalid_input = "Invalid input, try again:\r\n";
 
 string GamePlay::wrong_accusation = "You guessed incorrectly; deactivating...\n";
 
@@ -526,6 +525,26 @@ string GamePlay::wrong_accusation = "You guessed incorrectly; deactivating...\n"
 string GamePlay::navigate_stay[] = {"navigate", "stay", ""};
 string GamePlay::suggest_accuse[] = {"suggest", "accuse", "pass", ""};
 string GamePlay::accuse_pass[] = {"accuse", "pass", ""};
+
+int GamePlay::all_rooms[] = {1, 3, 5, 9, 11, 13, 17, 19, 21};
+
+bool GamePlay::in_room(Player* player){
+	int n = sizeof(all_rooms) / sizeof(all_rooms[0]);
+	cout << to_string(n) << " == 9???" << endl;
+
+	int player_location = player->get_location();
+	bool result = false;
+
+	// find() method doesn't work with needed compiler version
+	for (int i = 0; i < n; i++){
+		if (all_rooms[i] == player_location){
+			result = true;
+			break;
+		}
+	}
+
+	return result;
+}
 
 
 
@@ -547,7 +566,7 @@ void GamePlay::populate_case_file(int card1, int card2, int card3){
 	case_file[2] = card3;
 
 	// sort so cards are ordered by player, weapon, location
-	int n = sizeof(case_file)/sizeof(case_file[0]);
+	int n = sizeof(case_file) / sizeof(case_file[0]);
     sort(case_file, case_file + n);
 
     case_file_string = "Case file: " 
@@ -555,7 +574,6 @@ void GamePlay::populate_case_file(int card1, int card2, int card3){
     	+ to_string(case_file[1]) + ", " 
     	+ to_string(case_file[2]) + "\n";
 }
-
 
 
 // store and populate maps for relevant functions here
@@ -585,7 +603,6 @@ void GamePlay::populate_location_map(){
 	location_map[19] = "Ballroom";
 	location_map[20] = "Hallway (Ballroom, Kitchen)";
 	location_map[21] = "Kitchen";
-
 }
 
 void GamePlay::populate_card_map(){
