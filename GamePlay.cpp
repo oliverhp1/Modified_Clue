@@ -7,8 +7,8 @@ using namespace std;
 /** These are all the actions that a player might take on their turn.
  * They are implemented as static methods so we don't have to worry about
  * keeping track of a separate object instance and calling from it.
- * The overall driver is a method 'execute_turn', which calls the other methods
- * Methods correspond to general Clue gameplay:
+ * The overall driver is the method 'execute_turn'.
+ * Other methods correspond to general Clue gameplay:
  *	navigate
  *	suggest
  *	accuse
@@ -210,6 +210,7 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 	int player_suggestion, weapon_suggestion, suggested_id;
 
 	int location = players[player_id].get_location();
+	int location_suggestion = bridge[location];
 
 
 	// get player's suggestions (also checks for valid input)
@@ -221,7 +222,7 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 	// communicate to all other clients
 	string broadcast_suggestion = 
 		"Player " + to_string(player_id) + " suggests: " 
-		+ location_maplocation] + ", " 
+		+ to_string(location_suggestion) + ", " 
 		+ to_string(player_suggestion) + ", " 
 		+ to_string(weapon_suggestion) + "\n";
 
@@ -271,27 +272,102 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 	// finally, loop over all other players 
 	// (in the same order as turn progression)
 	// when one of them shows any card, break
-	int temp_id;
-	string show_card = "";
+	int temp_id, show_card, card_index, n_overlap, temp_socket;
+	string show_card_str, show_card_broadcast, no_show_broadcast, force_show_card;
 
 	for (int i = 1; i < n_clients; i++){
 		temp_id = (player_id + i) % n_clients;
+		temp_socket = socket_tracker[temp_id];
+
+		vector<int> overlap_cards;
+
+		if (players[temp_id].hand_contains(location_suggestion)){
+			overlap_cards.push_back(location_suggestion);
+		}
+		if (players[temp_id].hand_contains(weapon_suggestion)){
+			overlap_cards.push_back(weapon_suggestion);
+		}
+		if (players[temp_id].hand_contains(player_suggestion)){
+			overlap_cards.push_back(player_suggestion);
+		}
 
 
+		
+		n_overlap = overlap_cards.size();
 
-		/*
-		if any of suggested cards are in player's hand:
-			if only one
-				show automatically
-				string show_card_broadcast = "Player " + temp_id + " has shown Player " + player_id + " a card\n";
-				string show_card = "Player " + temp_id + " has shown you card " + player_id + " a card\n";
+		// player does not have any; pass to next player
+		if (n_overlap == 0){
+			no_show_broadcast = "Player " + to_string(temp_id) + " does not have any "
+				+ "of the suggested cards; passing.\r\n";
+			for (int j = 0; j < n_clients; j++){
+				send(socket_tracker[j], no_show_broadcast.c_str(), 
+					 no_show_broadcast.size(), 0);
+			}
+			cout << no_show_broadcast << endl;
 
-			else (if multiple)
-				choose which one to show
-		else (none)
-			move on automatically, and broadcast
+			continue;
+		}
 
-		*/
+		// this isn't very clean but equivalent ','.join code is even messier
+		// for applications with more cards we'd use something more robust
+		if (n_overlap == 3){
+			show_card_str = "Show one of " + to_string(overlap_cards[0]) + ", "
+				+ to_string(overlap_cards[1]) + ", or " + to_string(overlap_cards[2]) + ":\r\n\t";
+
+			show_card = get_contained_input(
+				temp_socket, server, show_card_str, overlap_cards
+			);
+			
+		}
+		else if (n_overlap == 2){
+			show_card_str = "Show one of " + to_string(overlap_cards[0])
+				+ " or " + to_string(overlap_cards[1]) + ":\r\n\t";
+
+			show_card = get_contained_input(
+				temp_socket, server, show_card_str, overlap_cards
+			);
+			
+		}
+		else if (n_overlap == 1){
+			show_card = overlap_cards[0];
+
+			force_show_card = "You are forced to show card " 
+				+ to_string(show_card) + "\r\n";
+			
+			send(temp_socket, force_show_card.c_str(), 
+				 force_show_card.size(), 0);
+		}
+
+
+		// we've gotten the card to show, now actually show, and broadcast
+		show_card_broadcast = "Player " + to_string(temp_id) 
+			+ " has shown Player " + to_string(player_id) + " a card\n";
+
+		show_card_str = "Player " + to_string(temp_id) 
+			+ " has shown you card " + to_string(show_card) + "\n";
+
+		for (int j = 0; j < n_clients; j++){
+			if (j == player_id){
+				send(socket_tracker[j], show_card_str.c_str(), 
+				 	 show_card_str.size(), 0);
+			}
+			else if (j != temp_id){
+				send(socket_tracker[j], show_card_broadcast.c_str(), 
+				 	 show_card_broadcast.size(), 0);
+			}
+		}
+
+
+		// card was shown; nobody else needs to show anything
+		break;
+
+
+		// testing: show all players' hands
+		// Player temp_player = players[temp_id];
+
+		// for (int card_index = 0; card_index < temp_player.get_hand().size(); card_index++){
+		// 	cout << to_string(temp_player.get_hand()[card_index]) << endl;
+		// }
 	}
 
 
@@ -420,6 +496,35 @@ int GamePlay::get_bounded_input(int socket_id, Server server, string message, in
 	return output;
 }
 
+int GamePlay::get_contained_input(int socket_id, Server server, 
+			string message, vector<int> superset){
+
+	string buffer;
+	int output;
+
+	bool success = false;
+	while (!success){
+		send(socket_id, message.c_str(), message.size(), 0);
+
+		buffer = server.receive_communication(socket_id);
+		istringstream(buffer) >> output;
+
+		// validate input (with the GUI this will probably not be necessary,
+		// it will be a conditional based on where the player clicks)
+		for (int i = 0; i < superset.size(); i++){
+			if (superset[i] == output){
+				success = true;
+				break;
+			}
+		}
+		if (!success){
+			send(socket_id, invalid_input.c_str(), invalid_input.size(), 0);
+		}
+	}
+
+	return output;
+}
+
 // get input that is contained within a string array
 string GamePlay::get_valid_move(int socket_id, Server server, 
 		string message, string outputs[]){
@@ -528,15 +633,13 @@ string GamePlay::accuse_pass[] = {"accuse", "pass", ""};
 
 int GamePlay::all_rooms[] = {1, 3, 5, 9, 11, 13, 17, 19, 21};
 
-bool GamePlay::in_room(Player* player){
-	int n = sizeof(all_rooms) / sizeof(all_rooms[0]);
-	cout << to_string(n) << " == 9???" << endl;
 
+bool GamePlay::in_room(Player* player){
 	int player_location = player->get_location();
 	bool result = false;
 
 	// find() method doesn't work with needed compiler version
-	for (int i = 0; i < n; i++){
+	for (int i = 0; i < sizeof(all_rooms) / sizeof(all_rooms[0]); i++){
 		if (all_rooms[i] == player_location){
 			result = true;
 			break;
@@ -579,6 +682,7 @@ void GamePlay::populate_case_file(int card1, int card2, int card3){
 // store and populate maps for relevant functions here
 unordered_map<int, string> GamePlay::location_map;
 unordered_map<int, string> GamePlay::card_map;
+unordered_map<int, int> GamePlay::bridge;
 
 void GamePlay::populate_location_map(){
 	// unordered_map<int, string> locations;
@@ -634,7 +738,18 @@ void GamePlay::populate_card_map(){
 
 }
 
-
+void GamePlay::populate_bridge(){
+	// bridge from location rooms to card rooms
+	bridge[1] = 13;
+	bridge[3] = 14;
+	bridge[5] = 15;
+	bridge[9] = 16;
+	bridge[11] = 17;
+	bridge[13] = 18;
+	bridge[17] = 19;
+	bridge[19] = 20;
+	bridge[21] = 21;
+}
 
 
 

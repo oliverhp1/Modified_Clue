@@ -42,6 +42,7 @@ class GamePlay {
 		);
 
 		static string get_valid_move(int, Server, string, string[]);
+		static int get_contained_input(int, Server, string, vector<int>);
 		static void call_valid_move(int, int*, Server, string, Player*);
     	
 
@@ -62,10 +63,12 @@ class GamePlay {
 
         // set up maps for relevant functionality
         static unordered_map<int, string> location_map, card_map;
-        // static unordered_map<int, string> ;
+        static unordered_map<int, int> bridge;
+        
 
         static void populate_location_map();
         static void populate_card_map();
+        static void populate_bridge();
 
 
         // helper strings for communication

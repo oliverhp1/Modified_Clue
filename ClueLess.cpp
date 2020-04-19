@@ -5,7 +5,7 @@
 
 
 // TODO: pass this as runtime arg instead of hardcoding
-#define PORT 10005
+#define PORT 10004
 #define MAX_PENDING_CONN 3
 
 
@@ -25,6 +25,7 @@ int main(int argc, char *argv[]){
 	// that work with fd_set don't support initializer lists
 	GamePlay::populate_location_map();
 	GamePlay::populate_card_map();
+	GamePlay::populate_bridge();
 	Player::initialize_map();
 
 
@@ -80,8 +81,6 @@ int main(int argc, char *argv[]){
 	then shuffle remaining numbers together
 	then, for all remaining cards, players[i].add_card(card)
 		where i is player_id.  
-		you'll need to make an "add_card" method for the Player class, 
-		that adds cards to their "hand" attribute (a vector- look up how to append to vector on google if necessary).
 		note that we'll want to support a variable number of players,
 		so their hand lengths may not be the same.
 
@@ -91,8 +90,24 @@ int main(int argc, char *argv[]){
 
 
 	// PLACEHOLDER: REMOVE THIS WHEN THE ABOVE IS IMPLEMENTED
-		// note that you can put the inputs in any order. the method will sort it automatically
+		// note that you can put case file cards in any order. the populate_case_file method will sort it automatically
 	GamePlay::populate_case_file(15, 7, 1);
+
+	players[0].add_card(2);
+	players[0].add_card(8);
+	players[0].add_card(16);
+
+	players[1].add_card(3);
+	players[1].add_card(9);
+	players[1].add_card(17);
+
+	if (n_clients > 2){
+		players[2].add_card(4);
+		players[2].add_card(10);
+		players[2].add_card(18);
+	}
+
+
 
 
 	cout << "3 cards reserved in the case file." << endl;

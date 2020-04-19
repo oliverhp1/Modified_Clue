@@ -20,6 +20,7 @@ class Player {
         // void execute_turn(Server);
         string show_hand();   // do at any time. Also print at the beginning
 
+        void add_card(int);
 
         // setter and getter methods
     	void set_player_id(int);
@@ -32,6 +33,8 @@ class Player {
 
         int get_location();
         string get_character();
+        vector<int> get_hand();
+        bool hand_contains(int);
 
     	
     	// track accusation logic (winning/active)

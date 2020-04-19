@@ -12,8 +12,12 @@ Player::Player() {
 
 
 
-
-
+// probably not necessary but nice to have in case we want
+// to extend this functionality somehow (e.g. sorting the hand)
+void Player::add_card(int card){
+	this->hand.push_back(card);
+	return;
+}
 
 
 // map: player_id -> initial location
@@ -70,6 +74,19 @@ int Player::get_location(){
 
 string Player::get_character(){
 	return this->character;
+}
+
+vector<int> Player::get_hand(){
+	return this->hand;
+}
+
+bool Player::hand_contains(int card){
+	for (int i = 0; i < hand.size(); i++){
+		if (hand[i] == card){
+			return true;
+		}
+	}
+	return false;
 }
 
 bool Player::is_in_play(){
