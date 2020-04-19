@@ -2,8 +2,6 @@
 #include "Player.h"
 #include "GamePlay.h"
 
-
-
 // TODO: pass this as runtime arg instead of hardcoding
 #define PORT 10005
 #define MAX_PENDING_CONN 3
@@ -27,6 +25,7 @@ int main(int argc, char *argv[]){
 	GamePlay::populate_card_map();
 	GamePlay::populate_bridge();
 	Player::initialize_map();
+
 
 
 	// start up server and get connections
@@ -54,7 +53,7 @@ int main(int argc, char *argv[]){
 		players[i].set_player_id(i);	// also sets characters
 		GamePlay::set_player_character(i, &players[i]);
 
-		who_are_you = "You are " + players[i].get_character() + "\n";
+		who_are_you = "*** You are " + players[i].get_character() + " ***\n";
 		send(socket_tracker[i], who_are_you.c_str(), who_are_you.size(), 0);
 
 		players[i].set_socket_id(socket_tracker[i]);
@@ -179,7 +178,8 @@ int main(int argc, char *argv[]){
 	}
 
 	// broadcast to all 
-	string loser_message = "Game Over: Player " + to_string(winning_player) + " Wins.\r\n";
+	string loser_message = "Game Over: " 
+		+ GamePlay::card_map[winning_player + 1] + " Wins.\r\n";
 	string winner_message = "You win!\r\n";
 
 	cout << loser_message << endl;

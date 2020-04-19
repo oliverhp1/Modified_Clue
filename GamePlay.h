@@ -32,7 +32,7 @@ class GamePlay {
 
 
         // helper methods
-        static int get_bounded_input(
+        static string get_bounded_input(
         	int, Server, string, int, int
         );
 
@@ -42,13 +42,14 @@ class GamePlay {
 		);
 
 		static string get_valid_input(int, Server, string, string[]);
-		static int get_contained_input(int, Server, string, vector<int>);
+		static string get_contained_input(int, Server, string, vector<string>);
 		static void call_valid_move(int, int*, Server, string, Player*);
 
 
 		static void show_hand(int, Player*);
 		static void print_state(int, int, Player*);
-    	
+
+		
 
 
         // set player attributes
@@ -68,6 +69,8 @@ class GamePlay {
 
         // set up maps for relevant functionality
         static unordered_map<int, string> location_map, card_map;
+        static unordered_map<string, int> reverse_location_map, reverse_card_map;
+    	
         static unordered_map<int, int> bridge;
         
 
@@ -81,13 +84,13 @@ class GamePlay {
         static string accuse_location, wrong_accusation;
 
         static string navigate_stay_str, suggest_accuse_str, accuse_pass_str;
-		static string start_str, force_navigate_str, force_stay_str;
+		static string start_str, navigate_accuse_str, force_stay_str;
 		static string check_hand, check_state;
 		
 		
-		static string invalid_input;
+		static string invalid_input, no_show_individual;
 
-		static string navigate_stay[], suggest_accuse[], accuse_pass[];
+		static string navigate_stay[], suggest_accuse[], accuse_pass[], navigate_accuse[];
         
 
 

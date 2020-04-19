@@ -73,6 +73,7 @@ void GamePlay::execute_turn(int player_id, Server server, Player* players){
 
 
 	string move;
+	bool done;
 
 
 	// there's 4 possibilities: 2x2 of (any valid moves) x (just got suggested)
@@ -84,11 +85,15 @@ void GamePlay::execute_turn(int player_id, Server server, Player* players){
 
 	if (any_valid_moves || player->get_just_suggested()){
 		if (!player->get_just_suggested()){	
-			// force them to navigate
-			send(socket_id, force_navigate_str.c_str(), 
-				 force_navigate_str.size(), 0);
+			// force them to navigate or accuse
+			move = get_valid_input(socket_id, server, 
+				navigate_accuse_str, navigate_accuse);
 
-			navigate(player_id, socket_tracker, server);
+			// either navigate or stay
+			call_valid_move(player_id, socket_tracker, server, move, players);
+			if (move.compare("accuse") == 0){
+				done = true;
+			}
 		}
 		else if (any_valid_moves){
 			// this implies they were just suggested
@@ -97,7 +102,7 @@ void GamePlay::execute_turn(int player_id, Server server, Player* players){
 				navigate_stay_str, navigate_stay);
 
 			// either navigate or stay
-			if (move.compare("navigate")){
+			if (move.compare("navigate") == 0){
 				navigate(player_id, socket_tracker, server);
 			}
 		}
@@ -110,7 +115,7 @@ void GamePlay::execute_turn(int player_id, Server server, Player* players){
 
 		// navigation is finished at this point (if possible)
 		// now they can suggest/pass/accuse
-		if (in_room(player)){
+		if (!done && in_room(player)){
 			// suggest, accuse, or pass logic
 			move = get_valid_input(socket_id, server, 
 				suggest_accuse_str, suggest_accuse);
@@ -125,7 +130,7 @@ void GamePlay::execute_turn(int player_id, Server server, Player* players){
 				call_valid_move(player_id, socket_tracker, server, move, players);
 			}
 		}
-		else {
+		else if (!done){
 			// directly accuse or pass if not in room
 			move = get_valid_input(socket_id, server, 
 				accuse_pass_str, accuse_pass);
@@ -191,7 +196,7 @@ void GamePlay::navigate(int player_id, int* socket_tracker, Server server){
 
 
 	// communicate to all other clients
-	string move_broadcast = "Player " + to_string(player_id) 
+	string move_broadcast = card_map[player_id + 1] 
 		+ " is moving to the " + location_buffer + "\n";
 
 	for (int i = 0; i < n_clients; i++){
@@ -217,10 +222,13 @@ void GamePlay::navigate(int player_id, int* socket_tracker, Server server){
 int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player* players){
 	int socket_id = socket_tracker[player_id];
 	int n_clients = server.get_n_clients();
-	int player_suggestion, weapon_suggestion, suggested_id;
+	int suggested_id;
+	string player_suggestion, weapon_suggestion;
+
 
 	int location = players[player_id].get_location();
-	int location_suggestion = bridge[location];
+	int location_card = bridge[location];
+	string location_suggestion = location_map[location];
 
 
 	// get player's suggestions (also checks for valid input)
@@ -231,10 +239,10 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 	// at this point, we've gotten valid values for a suggestion
 	// communicate to all other clients
 	string broadcast_suggestion = 
-		"Player " + to_string(player_id) + " suggests: " 
-		+ to_string(location_suggestion) + ", " 
-		+ to_string(player_suggestion) + ", " 
-		+ to_string(weapon_suggestion) + "\n";
+		card_map[player_id + 1] + " suggests: " 
+		+ location_suggestion + ", " 
+		+ player_suggestion + ", " 
+		+ weapon_suggestion + "\n";
 
 	for (int i = 0; i < n_clients; i++){
 		if (i != player_id){
@@ -248,19 +256,19 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 
 	// now move the suggested player to relevant location
 	// according to rules, do this regardless of whether player is active
-	suggested_id = player_suggestion - 1;
+	suggested_id = reverse_card_map[player_suggestion] - 1;
 
 	if ((suggested_id < n_clients) && (suggested_id != player_id)){
 		players[suggested_id].set_location(location);
 		players[suggested_id].set_just_suggested(true);
 
 
-		string move_message = "You are being moved to location " 
-			+ to_string(location) + "\n";
+		string move_message = "You are being moved to the " 
+			+ location_suggestion + "\n";
 
-		string broadcast_move = "Player " 
-			+ to_string(suggested_id) + " is being moved to "
-			+ "location " + to_string(location) + "\n";
+		string broadcast_move = player_suggestion
+			+ " is being moved to the " + location_suggestion + "\n";
+			
 
 		// notify player being moved
 		send(socket_tracker[suggested_id], move_message.c_str(), move_message.size(), 0);
@@ -282,22 +290,23 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 	// finally, loop over all other players 
 	// (in the same order as turn progression)
 	// when one of them shows any card, break
-	int temp_id, show_card, card_index, n_overlap, temp_socket;
+	int temp_id, card_index, n_overlap, temp_socket;
+	string show_card;
 	string show_card_str, show_card_broadcast, no_show_broadcast, force_show_card;
 
 	for (int i = 1; i < n_clients; i++){
 		temp_id = (player_id + i) % n_clients;
 		temp_socket = socket_tracker[temp_id];
 
-		vector<int> overlap_cards;
+		vector<string> overlap_cards;
 
-		if (players[temp_id].hand_contains(location_suggestion)){
+		if (players[temp_id].hand_contains(location_card)){
 			overlap_cards.push_back(location_suggestion);
 		}
-		if (players[temp_id].hand_contains(weapon_suggestion)){
+		if (players[temp_id].hand_contains(reverse_card_map[weapon_suggestion])){
 			overlap_cards.push_back(weapon_suggestion);
 		}
-		if (players[temp_id].hand_contains(player_suggestion)){
+		if (players[temp_id].hand_contains(reverse_card_map[player_suggestion])){
 			overlap_cards.push_back(player_suggestion);
 		}
 
@@ -307,11 +316,19 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 
 		// player does not have any; pass to next player
 		if (n_overlap == 0){
-			no_show_broadcast = "Player " + to_string(temp_id) + " does not have any "
+			no_show_broadcast = card_map[temp_id + 1] + " does not have any "
 				+ "of the suggested cards; passing.\r\n";
+			
 			for (int j = 0; j < n_clients; j++){
-				send(socket_tracker[j], no_show_broadcast.c_str(), 
-					 no_show_broadcast.size(), 0);
+				if (j == temp_id){
+					send(socket_tracker[j], no_show_individual.c_str(), 
+					 	 no_show_individual.size(), 0);
+				}
+				else {
+					send(socket_tracker[j], no_show_broadcast.c_str(), 
+					 	 no_show_broadcast.size(), 0);
+				}				
+				
 			}
 			cout << no_show_broadcast << endl;
 
@@ -321,8 +338,8 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 		// this isn't very clean but equivalent ','.join code is even messier
 		// for applications with more cards we'd use something more robust
 		if (n_overlap == 3){
-			show_card_str = "Show one of " + to_string(overlap_cards[0]) + ", "
-				+ to_string(overlap_cards[1]) + ", or " + to_string(overlap_cards[2]) + ":\r\n\t";
+			show_card_str = "Show one of " + overlap_cards[0] + ", "
+				+ overlap_cards[1] + ", or " + overlap_cards[2] + ":\r\n\t";
 
 			show_card = get_contained_input(
 				temp_socket, server, show_card_str, overlap_cards
@@ -330,8 +347,8 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 			
 		}
 		else if (n_overlap == 2){
-			show_card_str = "Show one of " + to_string(overlap_cards[0])
-				+ " or " + to_string(overlap_cards[1]) + ":\r\n\t";
+			show_card_str = "Show one of " + overlap_cards[0]
+				+ " or " + overlap_cards[1] + ":\r\n\t";
 
 			show_card = get_contained_input(
 				temp_socket, server, show_card_str, overlap_cards
@@ -341,8 +358,8 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 		else if (n_overlap == 1){
 			show_card = overlap_cards[0];
 
-			force_show_card = "You are forced to show card " 
-				+ to_string(show_card) + "\r\n";
+			force_show_card = "You are forced to show card: " 
+				+ show_card + "\r\n";
 			
 			send(temp_socket, force_show_card.c_str(), 
 				 force_show_card.size(), 0);
@@ -350,11 +367,11 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 
 
 		// we've gotten the card to show, now actually show, and broadcast
-		show_card_broadcast = "Player " + to_string(temp_id) 
-			+ " has shown Player " + to_string(player_id) + " a card\n";
+		show_card_broadcast = card_map[temp_id + 1] 
+			+ " has shown " + card_map[player_id + 1] + " a card\n";
 
-		show_card_str = "Player " + to_string(temp_id) 
-			+ " has shown you card " + to_string(show_card) + "\n";
+		show_card_str = card_map[temp_id + 1] 
+			+ " has shown you a card: " + show_card + "\n";
 
 		for (int j = 0; j < n_clients; j++){
 			if (j == player_id){
@@ -392,23 +409,23 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 void GamePlay::accuse(int player_id, int* socket_tracker, Server server, Player* player){
 	int socket_id = socket_tracker[player_id];
 	int n_clients = server.get_n_clients();
-	int accused_player, accused_weapon, accused_location;
+	string accused_player, accused_weapon, accused_location;
 	
 	
 	// get player's accusations
 	accused_player = get_bounded_input(socket_id, server, request_player, 1, 6);
-	accused_location = get_bounded_input(socket_id, server, accuse_location, 13, 21);
 	accused_weapon = get_bounded_input(socket_id, server, request_weapon, 7, 12);
+	accused_location = get_bounded_input(socket_id, server, accuse_location, 13, 21);
 
 
 	
 	// at this point, we've gotten valid values for the accusation
 	// communicate to all other clients
 	string accuse_broadcast = 
-		"Player " + to_string(player_id) + " accuses: " 
-		+ to_string(accused_player) + ", " 
-		+ to_string(accused_location) + ", "
-		+ to_string(accused_weapon) + "\n";
+		card_map[player_id + 1] + " accuses: " 
+		+ accused_player + ", " 
+		+ accused_location + ", "
+		+ accused_weapon + "\n";
 
 
 	for (int i = 0; i < n_clients; i++){
@@ -424,16 +441,16 @@ void GamePlay::accuse(int player_id, int* socket_tracker, Server server, Player*
 	send(socket_id, case_file_string.c_str(), case_file_string.size(), 0);
 
 	// now check correctness
-	if ((accused_player != case_file[0]) 
-		|| (accused_weapon != case_file[1]) 
-		|| (accused_location != case_file[2])){
+	if ((reverse_card_map[accused_player] != case_file[0])
+		|| (reverse_card_map[accused_weapon] != case_file[1]) 
+		|| (reverse_card_map[accused_location] != case_file[2])){
 
 		// if any are wrong, deactivate player and notify everyone
 		send(socket_id, wrong_accusation.c_str(), wrong_accusation.size(), 0);
 		player->deactivate();
 
 		string deactivated = 
-			"Player " + to_string(player_id) + " incorrect; deactivated.\n";
+			card_map[player_id + 1] + " incorrect; deactivated.\n";
 
 		for (int i = 0; i < n_clients; i++){
 			if (i != player_id){
@@ -457,7 +474,7 @@ void GamePlay::accuse(int player_id, int* socket_tracker, Server server, Player*
 // calling this will let you bypass that option
 void GamePlay::pass(int player_id, int* socket_tracker, Server server){
 	// just communicate to all other clients
-	string pass_broadcast = "Player " + to_string(player_id) 
+	string pass_broadcast = card_map[player_id + 1]
 		+ "\'s turn has ended.\n";
 
 	for (int i = 0; i < server.get_n_clients(); i++){
@@ -482,47 +499,53 @@ void GamePlay::pass(int player_id, int* socket_tracker, Server server){
 
 
 // remaining attributes/methods are largely helpers
-int GamePlay::get_bounded_input(int socket_id, Server server, string message, int lo, int hi){
-	string buffer;
-	int output;
+string GamePlay::get_bounded_input(int socket_id, Server server, string message, int lo, int hi){
+	string input;
+	int bound;
 
 	bool success = false;
 	while (!success){
 		send(socket_id, message.c_str(), message.size(), 0);
 
-		buffer = server.receive_communication(socket_id);
-		istringstream(buffer) >> output;
+		input = server.receive_communication(socket_id);
+
 
 		// validate input (with the GUI this will probably not be necessary,
 		// it will be a conditional based on where the player clicks)
-		if ((output >= lo) && (output <= hi)){
-			success = true;
+		
+		if (reverse_card_map.count(input) == 1){
+			bound = reverse_card_map[input];
+
+			if ((bound >= lo) && (bound <= hi)){
+				success = true;
+			}
+
 		}
-		else {
+		
+		if (!success){
 			send(socket_id, invalid_input.c_str(), invalid_input.size(), 0);
 		}
 	}
 
-	return output;
+	return input;
 }
 
-int GamePlay::get_contained_input(int socket_id, Server server, 
-			string message, vector<int> superset){
+string GamePlay::get_contained_input(int socket_id, Server server, 
+			string message, vector<string> superset){
 
-	string buffer;
-	int output;
+	string input;
+	// int output;
 
 	bool success = false;
 	while (!success){
 		send(socket_id, message.c_str(), message.size(), 0);
 
-		buffer = server.receive_communication(socket_id);
-		istringstream(buffer) >> output;
+		input = server.receive_communication(socket_id);
 
 		// validate input (with the GUI this will probably not be necessary,
 		// it will be a conditional based on where the player clicks)
 		for (int i = 0; i < superset.size(); i++){
-			if (superset[i] == output){
+			if (superset[i].compare(input) == 0){
 				success = true;
 				break;
 			}
@@ -532,7 +555,7 @@ int GamePlay::get_contained_input(int socket_id, Server server,
 		}
 	}
 
-	return output;
+	return input;
 }
 
 // get input that is contained within a string array
@@ -613,7 +636,7 @@ void GamePlay::show_hand(int socket_id, Player* player){
 	string output = "\tYour cards: ";
 
 	for (int i = 0; i < hand.size(); i++){
-		output += to_string(hand[i]);
+		output += card_map[hand[i]];
 
 		if (i != hand.size() - 1){
 			output += ", ";
@@ -630,8 +653,8 @@ void GamePlay::print_state(int socket_id, int n_clients, Player* players){
 	string output = "Player locations: \n\t";
 
 	for (int i = 0; i < n_clients; i++){
-		output += "Player " + to_string(i) + ": " 
-			   + to_string(players[i].get_location()) + "\n";
+		output += card_map[i + 1] + ": " 
+			   + location_map[players[i].get_location()] + "\n";
 
 		if (i != (n_clients - 1)) output += "\t";
 	}
@@ -658,7 +681,7 @@ string GamePlay::start_str = "Your turn.  \n";
 string GamePlay::navigate_stay_str = "Do you want to navigate or stay?\r\n\t";
 string GamePlay::suggest_accuse_str = "Do you want to suggest, accuse, or pass?\r\n\t";
 string GamePlay::accuse_pass_str = "Do you want to accuse or pass?\r\n\t";
-string GamePlay::force_navigate_str = "You must move from current location\r\n";
+string GamePlay::navigate_accuse_str = "Do you want to navigate or accuse?\r\n\t";
 string GamePlay::force_stay_str = "You have no valid moves\r\n\t";
 string GamePlay::check_hand = "Check hand? [y]/[n]: ";
 string GamePlay::check_state = "Check player locations? [y]/[n]: ";
@@ -666,12 +689,13 @@ string GamePlay::check_state = "Check player locations? [y]/[n]: ";
 string GamePlay::invalid_input = "Invalid input, try again:\r\n";
 
 string GamePlay::wrong_accusation = "You guessed incorrectly; deactivating...\n";
-
+string GamePlay::no_show_individual = "You do not have any of the suggested cards; passing.\r\n";
 
 // for validating inputs (probably won't need this with a GUI)
 // these terminating strings are not great, but it's impossible to
 // determine the size of an array using its pointer
 string GamePlay::navigate_stay[] = {"navigate", "stay", ""};
+string GamePlay::navigate_accuse[] = {"navigate", "accuse", ""};
 string GamePlay::suggest_accuse[] = {"suggest", "accuse", "pass", ""};
 string GamePlay::accuse_pass[] = {"accuse", "pass", ""};
 string GamePlay::yes_no[] = {"y", "n", ""};
@@ -718,15 +742,19 @@ void GamePlay::populate_case_file(int card1, int card2, int card3){
     sort(case_file, case_file + n);
 
     case_file_string = "Case file: " 
-    	+ to_string(case_file[0]) + ", "
-    	+ to_string(case_file[1]) + ", " 
-    	+ to_string(case_file[2]) + "\n";
+    	+ card_map[case_file[0]] + ", "
+    	+ card_map[case_file[1]] + ", " 
+    	+ card_map[case_file[2]] + "\n";
 }
 
 
 // store and populate maps for relevant functions here
 unordered_map<int, string> GamePlay::location_map;
+unordered_map<string, int> GamePlay::reverse_location_map;
+
 unordered_map<int, string> GamePlay::card_map;
+unordered_map<string, int> GamePlay::reverse_card_map;
+
 unordered_map<int, int> GamePlay::bridge;
 
 void GamePlay::populate_location_map(){
@@ -752,6 +780,31 @@ void GamePlay::populate_location_map(){
 	location_map[19] = "Ballroom";
 	location_map[20] = "Hallway (Ballroom, Kitchen)";
 	location_map[21] = "Kitchen";
+
+	// this is horrible, but unfortunately map iteration only 
+	// works on compilers that don't work with fd_set
+	reverse_location_map["Study"] = 1;
+	reverse_location_map["Hallway (Study, Hall)"] = 2;
+	reverse_location_map["Hall"] = 3;
+	reverse_location_map["Hallway (Hall, Lounge)"] = 4;
+	reverse_location_map["Lounge"] = 5;
+	reverse_location_map["Hallway (Study, Library)"] = 6;
+	reverse_location_map["Hallway (Hall, Billard Room)"] = 7;
+	reverse_location_map["Hallway (Lounge, Dining)"] = 8;
+	reverse_location_map["Library"] = 9;
+	reverse_location_map["Hallway (Library, Billard Room)"] = 10;
+	reverse_location_map["Billard Room"] = 11;
+	reverse_location_map["Hallway (Billard Room, Dining)"] = 12;
+	reverse_location_map["Dining Room"] = 13;
+	reverse_location_map["Hallway (Library, Conservatory)"] = 14;
+	reverse_location_map["Hallway (Billard Room, Ballroom)"] = 15;
+	reverse_location_map["Hallway (Dining, Kitchen)"] = 16;
+	reverse_location_map["Conservatory"] = 17;
+	reverse_location_map["Hallway (Conservatory, Ballroom)"] = 18;
+	reverse_location_map["Ballroom"] = 19;
+	reverse_location_map["Hallway (Ballroom, Kitchen)"] = 20;
+	reverse_location_map["Kitchen"] = 21;
+    
 }
 
 void GamePlay::populate_card_map(){
@@ -780,6 +833,32 @@ void GamePlay::populate_card_map(){
 	card_map[19] = "Conservatory";
 	card_map[20] = "Ballroom";
 	card_map[21] = "Kitchen";
+
+	reverse_card_map["Miss Scarlet"] = 1;
+	reverse_card_map["Professor Plum"] = 2;
+	reverse_card_map["Mrs. Peacock"] = 3;
+	reverse_card_map["Mr. Green"] = 4;
+	reverse_card_map["Mrs. White"] = 5;
+	reverse_card_map["Colonel Mustard"] = 6;
+
+	reverse_card_map["Rope"] = 7;
+	reverse_card_map["Lead Pipe"] = 8;
+	reverse_card_map["Knife"] = 9;
+	reverse_card_map["Wrench"] = 10;
+	reverse_card_map["Candlestick"] = 11;
+	reverse_card_map["Revolver"] = 12;
+
+	reverse_card_map["Study"] = 13;
+	reverse_card_map["Hall"] = 14;
+	reverse_card_map["Lounge"] = 15;
+	reverse_card_map["Library"] = 16;
+	reverse_card_map["Billard Room"] = 17;
+	reverse_card_map["Dining Room"] = 18;
+	reverse_card_map["Conservatory"] = 19;
+	reverse_card_map["Ballroom"] = 20;
+	reverse_card_map["Kitchen"] = 21;
+
+
 
 }
 
