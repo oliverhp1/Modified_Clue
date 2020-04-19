@@ -41,9 +41,13 @@ class GamePlay {
     		int, int*, Server, string, string[], Player*
 		);
 
-		static string get_valid_move(int, Server, string, string[]);
+		static string get_valid_input(int, Server, string, string[]);
 		static int get_contained_input(int, Server, string, vector<int>);
 		static void call_valid_move(int, int*, Server, string, Player*);
+
+
+		static void show_hand(int, Player*);
+		static void print_state(int, int, Player*);
     	
 
 
@@ -58,6 +62,7 @@ class GamePlay {
 
         // for determining whether player is in a room
         static int all_rooms[];
+        static string yes_no[];
         static bool in_room(Player*);
 
 

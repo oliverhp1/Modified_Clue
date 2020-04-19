@@ -49,22 +49,27 @@ using namespace std;
 void GamePlay::execute_turn(int player_id, Server server, Player* players){
 	int* socket_tracker = server.get_socket_tracker();
 	int socket_id = socket_tracker[player_id];
+	int n_clients = server.get_n_clients();
 	Player* player = &players[player_id];
+	string yn;
 
 
 	
 	// temp placeholder; build together with navigation logic later
 	bool any_valid_moves = true;
-
-	bool direct_accuse = false;
-	bool direct_pass = false;
+	
 
 	send(socket_id, start_str.c_str(), start_str.size(), 0);
 
-	// check hand and locations here
-	send(socket_id, check_hand.c_str(), check_hand.size(), 0);
 
-	send(socket_id, check_state.c_str(), check_state.size(), 0);
+	// check hand and locations here
+	yn = get_valid_input(socket_id, server, check_hand, yes_no);
+	if (yn == "y") show_hand(socket_id, player);
+
+	yn = get_valid_input(socket_id, server, check_state, yes_no);
+	if (yn == "y") print_state(socket_id, n_clients, players);
+
+	
 
 
 	string move;
@@ -76,8 +81,9 @@ void GamePlay::execute_turn(int player_id, Server server, Player* players){
 	// to reduce duplicated code, stick them together
 	// the final block (no valid moves) x (not just suggested)
 	// goes directly to accuse/pass
+
 	if (any_valid_moves || player->get_just_suggested()){
-		if (~player->get_just_suggested()){
+		if (!player->get_just_suggested()){	
 			// force them to navigate
 			send(socket_id, force_navigate_str.c_str(), 
 				 force_navigate_str.size(), 0);
@@ -87,10 +93,13 @@ void GamePlay::execute_turn(int player_id, Server server, Player* players){
 		else if (any_valid_moves){
 			// this implies they were just suggested
 			// so they're allowed to stay if desired
-			move = get_valid_move(socket_id, server, 
+			move = get_valid_input(socket_id, server, 
 				navigate_stay_str, navigate_stay);
 
-			call_valid_move(player_id, socket_tracker, server, move, players);
+			// either navigate or stay
+			if (move.compare("navigate")){
+				navigate(player_id, socket_tracker, server);
+			}
 		}
 		else {
 			// just suggested and no valid moves
@@ -98,18 +107,19 @@ void GamePlay::execute_turn(int player_id, Server server, Player* players){
 				 force_stay_str.size(), 0);
 		}
 
+
 		// navigation is finished at this point (if possible)
 		// now they can suggest/pass/accuse
 		if (in_room(player)){
 			// suggest, accuse, or pass logic
-			move = get_valid_move(socket_id, server, 
+			move = get_valid_input(socket_id, server, 
 				suggest_accuse_str, suggest_accuse);
 			call_valid_move(player_id, socket_tracker, server, move, players);
 
 			
 			// then, if suggested, accuse or pass options again
 			if (move.compare("suggest") == 0){
-				move = get_valid_move(socket_id, server, 
+				move = get_valid_input(socket_id, server, 
 					accuse_pass_str, accuse_pass);
 
 				call_valid_move(player_id, socket_tracker, server, move, players);
@@ -117,7 +127,7 @@ void GamePlay::execute_turn(int player_id, Server server, Player* players){
 		}
 		else {
 			// directly accuse or pass if not in room
-			move = get_valid_move(socket_id, server, 
+			move = get_valid_input(socket_id, server, 
 				accuse_pass_str, accuse_pass);
 
 			call_valid_move(player_id, socket_tracker, server, move, players);
@@ -130,7 +140,7 @@ void GamePlay::execute_turn(int player_id, Server server, Player* players){
 			 force_stay_str.size(), 0);	
 
 		// directly accuse or pass
-		move = get_valid_move(socket_id, server, 
+		move = get_valid_input(socket_id, server, 
 			accuse_pass_str, accuse_pass);
 
 		call_valid_move(player_id, socket_tracker, server, move, players);
@@ -526,7 +536,7 @@ int GamePlay::get_contained_input(int socket_id, Server server,
 }
 
 // get input that is contained within a string array
-string GamePlay::get_valid_move(int socket_id, Server server, 
+string GamePlay::get_valid_input(int socket_id, Server server, 
 		string message, string outputs[]){
 	
 	string action;
@@ -583,11 +593,14 @@ void GamePlay::call_valid_move(int player_id, int* socket_tracker,
 	else if (action.compare("pass") == 0){
 		pass(player_id, socket_tracker, server);
 	}
+	else if (action.compare("stay") == 0){
+		// don't do anything
+	}
 	else {
 		// data validation did not output valid action
 		cerr << "Invalid action not caught by data validation: " 
 			 << action 
-			 << "; call get_valid_move before this method" << endl;
+			 << "; call get_valid_input before this method" << endl;
 		exit(1);
 	}
 
@@ -595,7 +608,38 @@ void GamePlay::call_valid_move(int player_id, int* socket_tracker,
 }
 
 
+void GamePlay::show_hand(int socket_id, Player* player){
+	vector<int> hand = player->get_hand();
+	string output = "\tYour cards: ";
 
+	for (int i = 0; i < hand.size(); i++){
+		output += to_string(hand[i]);
+
+		if (i != hand.size() - 1){
+			output += ", ";
+		}
+	}
+	output += "\r\n";
+
+
+	send(socket_id, output.c_str(), output.size(), 0);
+}
+
+void GamePlay::print_state(int socket_id, int n_clients, Player* players){
+	// first create output string
+	string output = "Player locations: \n\t";
+
+	for (int i = 0; i < n_clients; i++){
+		output += "Player " + to_string(i) + ": " 
+			   + to_string(players[i].get_location()) + "\n";
+
+		if (i != (n_clients - 1)) output += "\t";
+	}
+
+	// then show to player
+	send(socket_id, output.c_str(), output.size(), 0);
+
+}
 
 void GamePlay::set_player_character(int player_id, Player* player){
 	player->set_character(card_map[player_id + 1]);
@@ -630,6 +674,7 @@ string GamePlay::wrong_accusation = "You guessed incorrectly; deactivating...\n"
 string GamePlay::navigate_stay[] = {"navigate", "stay", ""};
 string GamePlay::suggest_accuse[] = {"suggest", "accuse", "pass", ""};
 string GamePlay::accuse_pass[] = {"accuse", "pass", ""};
+string GamePlay::yes_no[] = {"y", "n", ""};
 
 int GamePlay::all_rooms[] = {1, 3, 5, 9, 11, 13, 17, 19, 21};
 

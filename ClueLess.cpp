@@ -5,7 +5,7 @@
 
 
 // TODO: pass this as runtime arg instead of hardcoding
-#define PORT 10004
+#define PORT 10005
 #define MAX_PENDING_CONN 3
 
 
@@ -113,7 +113,9 @@ int main(int argc, char *argv[]){
 	cout << "3 cards reserved in the case file." << endl;
 	cout << "Remaining 18 cards shuffled out to all players\n" << endl;
 
+
 	// show cards to players once
+	// using method void GamePlay::show_hand(int socket_id, Player* player)
 
 	// set players as a static attribute of GamePlay
 	// GamePlay::finalize_players(players);
