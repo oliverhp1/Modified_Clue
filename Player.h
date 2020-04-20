@@ -43,7 +43,7 @@ class Player {
         void set_win();
         void deactivate();
 
-        static void initialize_map();
+        // static void initialize_map();
 
     	
     	// string getting_accused();	// when another player accuses this player

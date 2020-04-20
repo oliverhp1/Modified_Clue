@@ -24,12 +24,11 @@ int main(int argc, char *argv[]){
 	GamePlay::populate_location_map();
 	GamePlay::populate_card_map();
 	GamePlay::populate_bridge();
-	Player::initialize_map();
-
+	// Player::initialize_map();
 
 
 	// start up server and get connections
-	int n_clients;
+	int n_clients, tmp_id;
 
 	Server server(PORT, MAX_CLIENTS, MAX_PENDING_CONN, STREAM_SIZE);
 	server.initialize();
@@ -50,7 +49,7 @@ int main(int argc, char *argv[]){
 	string who_are_you;
 
 	for (int i = 0; i < n_clients; i++){
-		players[i].set_player_id(i);	// also sets characters
+		players[i].set_player_id(i);
 		GamePlay::set_player_character(i, &players[i]);
 
 		who_are_you = "*** You are " + players[i].get_character() + " ***\n";
@@ -66,59 +65,75 @@ int main(int argc, char *argv[]){
 	
 
 
+	// Initialize case file and player cards	
+	vector<int> player_cards, weapon_cards, location_cards, all_cards;
+
+	for (int card = 1; card <= 21; card++){
+		if (card <= 6){
+			player_cards.push_back(card);
+		}
+		else if (card <= 12){
+			weapon_cards.push_back(card);
+		}
+		else {
+			location_cards.push_back(card);
+		}
+	}
+
+	// first shuffle each category individually
+	random_shuffle(player_cards.begin(), player_cards.end());
+	random_shuffle(weapon_cards.begin(), weapon_cards.end());
+	random_shuffle(location_cards.begin(), location_cards.end());
 
 
-	// TODO: INITIALIZE PLAYERS' CARDS AS WELL AS CASE FILE CARDS
-	/*  see the card_map defined at the bottom of GamePlay.cpp
-		you'll want one of each of (1 through 6), (7-12), and (13-21) in the case file
-		something like this:
-
-	random sample 6 numbers from numbers 1-6, without replacement (this will serve to shuffle # 1-6)
-		also do 7-12 and 13-21 separately
-	stick the first from each category in case file
-		use GamePlay::populate_case_file(int card1, int card2, int card3) to put cards in the case file
-	then shuffle remaining numbers together
-	then, for all remaining cards, players[i].add_card(card)
-		where i is player_id.  
-		note that we'll want to support a variable number of players,
-		so their hand lengths may not be the same.
-
-	After this, you'll want to send a message to each player, telling them what cards they drew.
-	You can copy the code from above (the code with string "who_are_you")
-	*/
+	// get one from each category for the case file
+	GamePlay::populate_case_file(
+		player_cards[0], 
+		weapon_cards[0], 
+		location_cards[0]
+	);
+	cout << "3 cards reserved in the case file." << endl;
 
 
-	// PLACEHOLDER: REMOVE THIS WHEN THE ABOVE IS IMPLEMENTED
-		// note that you can put case file cards in any order. the populate_case_file method will sort it automatically
-	GamePlay::populate_case_file(15, 7, 1);
+	// remove case file cards from remaining cards
+	player_cards.erase(player_cards.begin());
+	weapon_cards.erase(weapon_cards.begin());
+	location_cards.erase(location_cards.begin());
 
-	players[0].add_card(2);
-	players[0].add_card(8);
-	players[0].add_card(16);
 
-	players[1].add_card(3);
-	players[1].add_card(9);
-	players[1].add_card(17);
+	// bin remaining cards together
+	all_cards.insert(all_cards.end(), player_cards.begin(), player_cards.end());
+	all_cards.insert(all_cards.end(), weapon_cards.begin(), weapon_cards.end());
+	all_cards.insert(all_cards.end(), location_cards.begin(), location_cards.end());
 
-	if (n_clients > 2){
-		players[2].add_card(4);
-		players[2].add_card(10);
-		players[2].add_card(18);
+
+	// and shuffle again
+	random_shuffle(all_cards.begin(), all_cards.end());
+
+	// double check size
+	if (all_cards.size() != 18){
+		cerr << "Unexpected behavior during card shuffling; "
+			 << "revisit logic in main()" << endl;
 	}
 
 
+	// finally, shuffle to each player
+	for (int i = 0; i < all_cards.size(); i++){
+		tmp_id = i % n_clients; 
+		players[tmp_id].add_card(all_cards[i]);
+	}
 
-
-	cout << "3 cards reserved in the case file." << endl;
 	cout << "Remaining 18 cards shuffled out to all players\n" << endl;
-
+	
+	
 
 	// show cards to players once
-	// using method void GamePlay::show_hand(int socket_id, Player* player)
+	for (int i = 0; i < n_clients; i++){
+		GamePlay::show_hand(socket_tracker[i], &players[i]);
+	}
+	
 
-	// set players as a static attribute of GamePlay
-	// GamePlay::finalize_players(players);
-
+	
 	// finally, this is the main game loop
 	bool game_active = true;
 	bool player_won = false;

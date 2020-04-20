@@ -12,10 +12,12 @@ Player::Player() {
 
 
 
-// probably not necessary but nice to have in case we want
-// to extend this functionality somehow (e.g. sorting the hand)
+// sort while adding. not necessary but nice to have
+// (also not that efficient, but inconsequential in this use case)
 void Player::add_card(int card){
-	this->hand.push_back(card);
+	hand.push_back(card);
+    sort(hand.begin(), hand.end());
+
 	return;
 }
 
@@ -24,17 +26,17 @@ void Player::add_card(int card){
 // need a separate method to initialize because of compiler version conflicts
 unordered_map<int, int> Player::initial_location_map;
 
-void Player::initialize_map(){			// TESTING: WILL NEED TO FILL IN WITH STARTING BLOCKS LATER
+// void Player::initialize_map(){			// TESTING: WILL NEED TO FILL IN WITH STARTING BLOCKS LATER
 
-	initial_location_map[0] = 1;	// p0, scarlet, (hall/lounge)
-	initial_location_map[1] = 2;	// p1, plum, (study/library)
-	initial_location_map[2] = 6;	// p2, peacock, (library/conservatory)
-	initial_location_map[3] = 18;	// p3, green, (conservatory/ballroom)
-	initial_location_map[4] = 20;	// p4, white, (ballroom/kitchen)
-	initial_location_map[5] = 8;	// p5, mustard, (lounge/dining)
+// 	initial_location_map[0] = 1;	// p0, scarlet, (hall/lounge)
+// 	initial_location_map[1] = 2;	// p1, plum, (study/library)
+// 	initial_location_map[2] = 6;	// p2, peacock, (library/conservatory)
+// 	initial_location_map[3] = 18;	// p3, green, (conservatory/ballroom)
+// 	initial_location_map[4] = 20;	// p4, white, (ballroom/kitchen)
+// 	initial_location_map[5] = 8;	// p5, mustard, (lounge/dining)
 
 
-}
+// }
 
 
 // setter and getter methods
@@ -44,7 +46,7 @@ void Player::set_player_id(int player_id){
 	this->player_id = player_id;
 
 	// initial location depends only on player_id
-	this->set_location(initial_location_map[player_id]);
+	this->set_location(-1 * player_id - 1]);
 
 	cout << "Player " << player_id << " initialized" << endl;
 }

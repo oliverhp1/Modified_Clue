@@ -694,6 +694,7 @@ void GamePlay::call_valid_move(int player_id, int* socket_tracker,
 }
 
 
+
 void GamePlay::show_hand(int socket_id, Player* player){
 	vector<int> hand = player->get_hand();
 	string output = "\tYour cards: ";
@@ -822,6 +823,14 @@ unordered_map< int, vector<int> > GamePlay::valid_move_map;
 unordered_map<int, int> GamePlay::bridge;
 
 
+
+
+// ideally this would be implemented as a graph, 
+// with 4 possible directions to go (e.g. node.left, node.right, etc).
+// or we could design separate study and hallway types, and use those
+// (e.g. a hallway could contain attributes for which rooms they're 
+// connected to, and similarly with the rooms)
+// but using a map is easier
 void GamePlay::populate_location_map(){
 	valid_move_map[1].push_back(2);
 	valid_move_map[1].push_back(6);
@@ -897,6 +906,15 @@ void GamePlay::populate_location_map(){
 	valid_move_map[21].push_back(1);	// secret passageway
 
 
+	// starting blocks
+	valid_move_map[-1].push_back(4);
+	valid_move_map[-2].push_back(6);
+	valid_move_map[-3].push_back(14);
+	valid_move_map[-4].push_back(18);
+	valid_move_map[-5].push_back(20);
+	valid_move_map[-6].push_back(8);
+
+
 
 
 	// unordered_map<int, string> locations;
@@ -922,6 +940,13 @@ void GamePlay::populate_location_map(){
 	location_map[20] = "Hallway (Ballroom, Kitchen)";
 	location_map[21] = "Kitchen";
 
+	location_map[-1] = "Starting Block";
+	location_map[-2] = "Starting Block";
+	location_map[-3] = "Starting Block";
+	location_map[-4] = "Starting Block";
+	location_map[-5] = "Starting Block";
+	location_map[-6] = "Starting Block";
+
 	// this is horrible, but unfortunately map iteration only 
 	// works on compilers that don't work with fd_set
 	reverse_location_map["Study"] = 1;
@@ -945,13 +970,6 @@ void GamePlay::populate_location_map(){
 	reverse_location_map["Ballroom"] = 19;
 	reverse_location_map["Hallway (Ballroom, Kitchen)"] = 20;
 	reverse_location_map["Kitchen"] = 21;
-
-	// ideally this would be implemented as a graph, 
-	// with 4 possible directions to go (e.g. node.left, node.right, etc).
-	// or we could design separate study and hallway types, and use those
-	// (e.g. a hallway could contain attributes for which rooms they're 
-	// connected to, and similarly with the rooms)
-	// but using a map is easier
 
     
 }
