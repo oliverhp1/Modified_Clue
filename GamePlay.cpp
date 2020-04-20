@@ -746,7 +746,7 @@ string GamePlay::navigate_stay_str = "Do you want to navigate or stay?\r\n\t";
 string GamePlay::suggest_accuse_str = "Do you want to suggest, accuse, or pass?\r\n\t";
 string GamePlay::accuse_pass_str = "Do you want to accuse or pass?\r\n\t";
 string GamePlay::navigate_accuse_str = "Do you want to navigate or accuse?\r\n\t";
-string GamePlay::force_stay_str = "You have no valid moves\r\n\t";
+string GamePlay::force_stay_str = "You have no valid moves\r\n";
 string GamePlay::check_hand = "Check hand? [y]/[n]: ";
 string GamePlay::check_state = "Check player locations? [y]/[n]: ";
 
