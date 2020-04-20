@@ -25,7 +25,7 @@ class GamePlay {
 
         // each of these will use player_id and socket_id
         // corresponding to which player is doing the action
-    	static void navigate(int, int*, Server);
+    	static void navigate(int, vector<string>, int*, Server, Player*);
     	static int suggest(int, int*, Server, Player*);
         static void accuse(int, int*, Server, Player*);
         static void pass(int, int*, Server);
@@ -43,7 +43,7 @@ class GamePlay {
 
 		static string get_valid_input(int, Server, string, string[]);
 		static string get_contained_input(int, Server, string, vector<string>);
-		static void call_valid_move(int, int*, Server, string, Player*);
+		static void call_valid_move(int, int*, vector<string>, Server, string, Player*);
 
 
 		static void show_hand(int, Player*);
@@ -72,6 +72,7 @@ class GamePlay {
         static unordered_map<string, int> reverse_location_map, reverse_card_map;
     	
         static unordered_map<int, int> bridge;
+        static unordered_map< int, vector<int> > valid_move_map;
         
 
         static void populate_location_map();
