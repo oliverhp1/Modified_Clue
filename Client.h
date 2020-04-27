@@ -1,6 +1,15 @@
 #include "Server.h"
 
+
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
+#include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_mixer.h>
+
 using namespace std;
+
+
+
 
 
 /*
@@ -18,7 +27,7 @@ using namespace std;
 // 		// ~Client();
 
 // 		void initialize();	// connect to server
-		// void send_communication();	// send to server
+// 		void send_communication();	// send to server
 
 
 // 		string receive_communication(int);	// socket id
