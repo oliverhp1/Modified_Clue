@@ -13,9 +13,10 @@ using namespace std;
 
 
 /*
- * this client class serves to connect to the server.
- * after connected, we need to make custom functionality
- * for handling all inputs and outputs.
+ * this client class serves to connect to the server
+ * after connected, we also use this class to send/receive
+ * messages from the server.
+ * this includes rendering the board and handling all events.
  * in particular, all messages from server will represent changes
  * in game state, and all messages to server will represent
  * the action the client wants to take.
@@ -23,7 +24,7 @@ using namespace std;
 // class Client {
 // 	public:
 // 		// port, max clients, max pending connections, stream size
-// 		Client(int, int, int, int);
+// 		// Client(int, int, int, int);
 // 		// ~Client();
 
 // 		void initialize();	// connect to server

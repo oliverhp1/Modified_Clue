@@ -19,6 +19,8 @@
 
 #include <netinet/in.h>
 
+#include "globals.h"
+
 
 #define MAX_CLIENTS 6   // one per player
 #define STREAM_SIZE 1024

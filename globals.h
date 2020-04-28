@@ -7,4 +7,4 @@
 // extern const int SCREEN_WIDTH;
 // extern const int SCREEN_HEIGHT;
 
-
+extern bool game_started;

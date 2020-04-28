@@ -58,8 +58,8 @@ void Server::initialize(){
 
 	fd_set active_sockets = connect_all();
 
-	cout << "Game starting. Notifying all " << n_clients 
-		 << " clients\r\n" << endl;
+	cout << "Game starting." << endl;
+	game_started = true;
 
 	int temp_socket;
 
@@ -307,15 +307,15 @@ fd_set Server::connect_all(){
 
 string Server::connection_message = 
 	"Connection confirmed. "
-	"Type \"start\" when all players are connected.\r\n";
+	"Type \"start\" when all players are connected.";
 
 string Server::insufficient_message = 
 	"Only one client connected. At least "
-	"two required.\r\n";
+	"two required.";
 
-string Server::invalid_message = "Invalid message. Type \"start\" when ready\r\n";
+string Server::invalid_message = "Invalid message. Type \"start\" when ready";
 
-string Server::start_message = "Game is starting.\r\n";
+string Server::start_message = "Game is starting.";
 
 string Server::not_your_turn = "Invalid message: not your turn.\r\n";
 

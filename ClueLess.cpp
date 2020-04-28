@@ -2,8 +2,6 @@
 #include "Player.h"
 #include "GamePlay.h"
 
-// TODO: pass this as runtime arg instead of hardcoding
-#define PORT 10005
 #define MAX_PENDING_CONN 3
 
 
@@ -18,19 +16,25 @@ using namespace std;
  * winning condition is reached.
  */
 int main(int argc, char *argv[]){
+	// first get port from runtime args
+	if (argc < 2) {
+       printf("Usage: %s [port]\n", argv[0]);
+       exit(1);
+    }
+	int port = atoi(argv[1]);
+    
 	// initialize location and card maps
 	// ideally you'd just initialize them when defined, but the c++ compilers 
 	// that work with fd_set don't support initializer lists
 	GamePlay::populate_location_map();
 	GamePlay::populate_card_map();
 	GamePlay::populate_bridge();
-	// Player::initialize_map();
 
 
 	// start up server and get connections
 	int n_clients, tmp_id;
 
-	Server server(PORT, MAX_CLIENTS, MAX_PENDING_CONN, STREAM_SIZE);
+	Server server(port, MAX_CLIENTS, MAX_PENDING_CONN, STREAM_SIZE);
 	server.initialize();
 
 	n_clients = server.get_n_clients();
@@ -52,8 +56,8 @@ int main(int argc, char *argv[]){
 		players[i].set_player_id(i);
 		GamePlay::set_player_character(i, &players[i]);
 
-		who_are_you = "*** You are " + players[i].get_character() + " ***\n";
-		send(socket_tracker[i], who_are_you.c_str(), who_are_you.size(), 0);
+		// who_are_you = "*** You are " + players[i].get_character() + " ***\n";
+		// send(socket_tracker[i], who_are_you.c_str(), who_are_you.size(), 0);
 
 		players[i].set_socket_id(socket_tracker[i]);
 
@@ -128,9 +132,10 @@ int main(int argc, char *argv[]){
 	
 
 	// show cards to players once
-	for (int i = 0; i < n_clients; i++){
-		GamePlay::show_hand(socket_tracker[i], &players[i]);
-	}
+	// not necessary with the GUI
+	// for (int i = 0; i < n_clients; i++){
+	// 	GamePlay::show_hand(socket_tracker[i], &players[i]);
+	// }
 	
 
 	
