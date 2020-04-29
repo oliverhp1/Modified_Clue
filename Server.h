@@ -1,24 +1,5 @@
 #pragma once
 
-#include <iostream>
-#include <unordered_map>
-
-#include <stdio.h>  
-#include <string.h>
-#include <stdlib.h>  
-#include <vector> 
-#include <sstream>
-
-#include <errno.h>  
-#include <unistd.h>
-#include <arpa/inet.h>   
-
-#include <sys/types.h>  
-#include <sys/socket.h>  
-#include <sys/time.h>
-
-#include <netinet/in.h>
-
 #include "globals.h"
 
 

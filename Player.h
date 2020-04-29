@@ -17,7 +17,6 @@ class Player {
     	Player();
 
         // game logic methods
-        // void execute_turn(Server);
         string show_hand();   // do at any time. Also print at the beginning
 
         void add_card(int);
@@ -43,10 +42,7 @@ class Player {
         void set_win();
         void deactivate();
 
-        // static void initialize_map();
 
-    	
-    	// string getting_accused();	// when another player accuses this player
 
 
     private: 

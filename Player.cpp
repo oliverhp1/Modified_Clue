@@ -26,17 +26,6 @@ void Player::add_card(int card){
 // need a separate method to initialize because of compiler version conflicts
 unordered_map<int, int> Player::initial_location_map;
 
-// void Player::initialize_map(){			// TESTING: WILL NEED TO FILL IN WITH STARTING BLOCKS LATER
-
-// 	initial_location_map[0] = 1;	// p0, scarlet, (hall/lounge)
-// 	initial_location_map[1] = 2;	// p1, plum, (study/library)
-// 	initial_location_map[2] = 6;	// p2, peacock, (library/conservatory)
-// 	initial_location_map[3] = 18;	// p3, green, (conservatory/ballroom)
-// 	initial_location_map[4] = 20;	// p4, white, (ballroom/kitchen)
-// 	initial_location_map[5] = 8;	// p5, mustard, (lounge/dining)
-
-
-// }
 
 
 // setter and getter methods

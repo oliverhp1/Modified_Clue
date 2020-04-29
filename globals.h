@@ -1,10 +1,60 @@
 #pragma once
 
-// using namespace std;
+#include <iostream>
+#include <unordered_map>
+
+#include <stdio.h>  
+#include <string.h>
+#include <stdlib.h>  
+#include <vector> 
+#include <sstream>
+
+#include <errno.h>  
+#include <unistd.h>
+#include <arpa/inet.h>   
+
+#include <sys/types.h>  
+#include <sys/socket.h>  
+#include <sys/time.h>
+
+#include <netinet/in.h>
 
 
-// use these later for the gui
-// extern const int SCREEN_WIDTH;
-// extern const int SCREEN_HEIGHT;
+using namespace std;
+
 
 extern bool game_started;
+
+
+
+// set up maps for relevant functionality
+extern unordered_map<int, string> location_map;
+extern unordered_map<string, int> reverse_location_map;
+
+extern unordered_map<int, string> card_map;
+extern unordered_map<string, int> reverse_card_map;
+
+extern unordered_map< int, vector<int> > valid_move_map;
+extern unordered_map<int, int> bridge;
+
+
+extern void populate_location_map();
+extern void populate_card_map();
+extern void populate_bridge();
+
+extern int all_rooms[9];
+extern string yes_no[];
+
+
+// helper strings for communication
+extern string request_location, request_player, request_weapon;
+extern string accuse_location, wrong_accusation;
+
+extern string navigate_stay_str, suggest_accuse_str, accuse_pass_str;
+extern string start_str, navigate_accuse_str, force_stay_str;
+extern string check_hand, check_state;
+
+
+extern string invalid_input, no_show_individual;
+
+extern string navigate_stay[], suggest_accuse[], accuse_pass[], navigate_accuse[];

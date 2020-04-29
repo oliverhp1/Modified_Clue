@@ -62,36 +62,9 @@ class GamePlay {
 
 
         // for determining whether player is in a room
-        static int all_rooms[];
-        static string yes_no[];
         static bool in_room(Player*);
 
 
-        // set up maps for relevant functionality
-        static unordered_map<int, string> location_map, card_map;
-        static unordered_map<string, int> reverse_location_map, reverse_card_map;
-    	
-        static unordered_map<int, int> bridge;
-        static unordered_map< int, vector<int> > valid_move_map;
-        
-
-        static void populate_location_map();
-        static void populate_card_map();
-        static void populate_bridge();
-
-
-        // helper strings for communication
-        static string request_location, request_player, request_weapon;
-        static string accuse_location, wrong_accusation;
-
-        static string navigate_stay_str, suggest_accuse_str, accuse_pass_str;
-		static string start_str, navigate_accuse_str, force_stay_str;
-		static string check_hand, check_state;
-		
-		
-		static string invalid_input, no_show_individual;
-
-		static string navigate_stay[], suggest_accuse[], accuse_pass[], navigate_accuse[];
         
 
 

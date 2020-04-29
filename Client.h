@@ -21,6 +21,9 @@ using namespace std;
  * in game state, and all messages to server will represent
  * the action the client wants to take.
  */
+
+
+
 // class Client {
 // 	public:
 // 		// port, max clients, max pending connections, stream size

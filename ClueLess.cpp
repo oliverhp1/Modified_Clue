@@ -26,9 +26,9 @@ int main(int argc, char *argv[]){
 	// initialize location and card maps
 	// ideally you'd just initialize them when defined, but the c++ compilers 
 	// that work with fd_set don't support initializer lists
-	GamePlay::populate_location_map();
-	GamePlay::populate_card_map();
-	GamePlay::populate_bridge();
+	populate_location_map();
+	populate_card_map();
+	populate_bridge();
 
 
 	// start up server and get connections
@@ -199,7 +199,7 @@ int main(int argc, char *argv[]){
 
 	// broadcast to all 
 	string loser_message = "Game Over: " 
-		+ GamePlay::card_map[winning_player + 1] + " Wins.\r\n";
+		+ card_map[winning_player + 1] + " Wins.\r\n";
 	string winner_message = "You win!\r\n";
 
 	cout << loser_message << endl;
