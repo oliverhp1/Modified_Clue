@@ -59,11 +59,13 @@ void GamePlay::execute_turn(int player_id, Server server, Player* players){
 
 
 	// check hand and locations here
-	yn = get_valid_input(socket_id, server, check_hand, yes_no);
-	if (yn == "y") show_hand(socket_id, player);
+	// this is not necessary with the GUI
 
-	yn = get_valid_input(socket_id, server, check_state, yes_no);
-	if (yn == "y") print_state(socket_id, n_clients, players);
+	// yn = get_valid_input(socket_id, server, check_hand, yes_no);
+	// if (yn == "y") show_hand(socket_id, player);
+
+	// yn = get_valid_input(socket_id, server, check_state, yes_no);
+	// if (yn == "y") print_state(socket_id, n_clients, players);
 
 
 
@@ -113,6 +115,12 @@ void GamePlay::execute_turn(int player_id, Server server, Player* players){
 		// let player know what choices they have for navigation
 		// before they choose their move (if any)
 		// convert location ints to strings while making message to send
+
+		/*
+
+		THIS IS NOT REALLY NECESSARY WITH THE GUI EITHER
+		WE WILL PREFERABLY HIGHLIGHT VALID MOVES
+		
 		for (int i = 0; i < valid_moves_int.size(); i++){
 			string temp = location_map[valid_moves_int[i]];
 			valid_moves.push_back(temp);
@@ -128,7 +136,8 @@ void GamePlay::execute_turn(int player_id, Server server, Player* players){
 		}
 		send(socket_id, move_possibilities.c_str(), 
 			 move_possibilities.size(), 0);
-
+		
+		*/
 
 		// now give them available options
 		if (!player->get_just_suggested()){	

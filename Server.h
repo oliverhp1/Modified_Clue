@@ -3,7 +3,7 @@
 #include "globals.h"
 
 
-#define MAX_CLIENTS 6   // one per player
+#define MAX_CLIENTS 2   // one per player
 #define STREAM_SIZE 1024
 
 
@@ -47,7 +47,7 @@ class Server{
 		int max_clients, n_clients;
 
 		// common communication messages to send to clients
-		static string connection_message, start_message;
+		static string connection_message, start_message, confirm_message;
 		static string insufficient_message, invalid_message, not_your_turn;
 
 

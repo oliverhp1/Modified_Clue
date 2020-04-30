@@ -56,25 +56,30 @@ void Server::initialize(){
 
 	cout << "Listening on port: " << port << endl;
 
+
+	// connect all clients
 	fd_set active_sockets = connect_all();
 
-	cout << "Game starting." << endl;
+	// cout << "Game starting." << endl;
 	game_started = true;
 
-	int temp_socket;
 
-	for (int i = 0; i < n_clients; i++){
-		// send start message to all clients
-		temp_socket = socket_tracker[i];
+		// new logic doesn't need this
+		// just render first and wait for "your turn"
+	// int temp_socket;
 
-		if (temp_socket > 0){
-			send(temp_socket,
-				start_message.c_str(),
-				start_message.size(),
-				0
-			);
-		}
-	}
+	// for (int i = 0; i < n_clients; i++){
+	// 	// send start message to all clients
+	// 	temp_socket = socket_tracker[i];
+
+	// 	if (temp_socket > 0){
+	// 		send(temp_socket,
+	// 			start_message.c_str(),
+	// 			start_message.size(),
+	// 			0
+	// 		);
+	// 	}
+	// }
 
 	// 
 	this->active_sockets = active_sockets;
@@ -169,9 +174,13 @@ fd_set Server::connect_all(){
 	int new_client, max_connection, connection_index;
 	int temp_socket, incoming_stream;
 	char buffer[stream_size];
+	bool player_start[max_clients];
+
+	for (int i = 0; i < max_clients; i++) player_start[i] = false;
 
 	// several starting conditions: max clients or manual start
-	bool running = true;	
+	bool running = true;
+	bool connecting = true;
 
 	while (running){
 		// need to reset the fd_set each iteration since select will destroy it
@@ -187,7 +196,8 @@ fd_set Server::connect_all(){
 		);
 
 
-		if (FD_ISSET(listening_socket, &active_sockets)){
+		// stop receiving connections after max clients satisfied
+		if (connecting && FD_ISSET(listening_socket, &active_sockets)){
 			// client attempting to connect
 			// accept the connection and add it to fd_set (and socket tracker)
 			cout << "Connection attempt received..." << endl;
@@ -220,6 +230,7 @@ fd_set Server::connect_all(){
 			}
 
 			// give client instructions for starting game
+			// now, it's just "wait until everyone is connected"
 			send(
 				new_client, 
 				connection_message.c_str(), 
@@ -231,6 +242,9 @@ fd_set Server::connect_all(){
 		}
 		else {
 			// it's an inbound message from a client
+			running = false;
+			// if all 6 are connected and confirmed, stop the loop
+
 			for (int i = 0; i < max_clients; i++){
 				// check for messages from all clients
 				temp_socket = socket_tracker[i];
@@ -263,19 +277,9 @@ fd_set Server::connect_all(){
 						    buffer
 						);
 
+						// did player start?
 						if (strncmp(buffer, "start", 5) == 0){
-							// someone started the game
-							if (n_clients == 1){
-								send(temp_socket,
-									insufficient_message.c_str(),
-									insufficient_message.size(),
-									0
-								);
-							}
-							else {
-								running = false;
-							}
-							
+							player_start[i] = true;
 						}
 						else {
 							send(temp_socket, 
@@ -287,12 +291,19 @@ fd_set Server::connect_all(){
 						
 					}
 				}
+
+				// if any player hasn't started, keep going
+				// (if not enough players are connected, this will also trip
+				// since player_start defaults to all false)
+				if (!player_start[i]){
+					running = true;
+				}
 			}
 		}
 
 		// don't allow more than 6 clients
 		if (n_clients == max_clients){
-			running = false;
+			connecting = false;
 		}
 		else if (n_clients > max_clients){
 			// should never get here; leave for debugging purposes
@@ -300,6 +311,9 @@ fd_set Server::connect_all(){
 			exit(1);
 		}
 	}
+
+
+
 	return active_sockets;
 }
 
@@ -307,11 +321,13 @@ fd_set Server::connect_all(){
 
 string Server::connection_message = 
 	"Connection confirmed. "
-	"Type \"start\" when all players are connected.";
+	"Type \"start\" when ready.";
 
-string Server::insufficient_message = 
-	"Only one client connected. At least "
-	"two required.";
+string Server::confirm_message = "Press enter to start";
+
+// string Server::insufficient_message = 
+// 	"Only one client connected. At least "
+// 	"two required.";
 
 string Server::invalid_message = "Invalid message. Type \"start\" when ready";
 

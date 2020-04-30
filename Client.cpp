@@ -53,8 +53,22 @@ int handle_board_mouse(){
 	// cout << "x, y = " << mouse_x << ", " << mouse_y << endl;	// for debugging purposes
 
 	if ((mouse_x > 0) && (mouse_x < SCREEN_WIDTH / 2) && (mouse_y > 0) && (mouse_y < SCREEN_HEIGHT / 2)){
+		// TOP LEFT
 		result = 1;
 	}
+	else if ((mouse_x < SCREEN_WIDTH) && (mouse_x >= SCREEN_WIDTH / 2) && (mouse_y > 0) && (mouse_y < SCREEN_HEIGHT / 2)){
+		// TOP RIGHT
+		result = 2;
+	}
+	else if ((mouse_x > 0) && (mouse_x < SCREEN_WIDTH / 2) && (mouse_y < SCREEN_HEIGHT) && (mouse_y > SCREEN_HEIGHT / 2)){
+		// BOTTOM LEFT
+		result = 3;
+	}
+	else if ((mouse_x < SCREEN_WIDTH) && (mouse_x > SCREEN_WIDTH / 2) && (mouse_y < SCREEN_HEIGHT) && (mouse_y > SCREEN_HEIGHT / 2)){
+		// TOP RIGHT
+		result = 4;
+	}
+
 	// can use these for ease if we're custom rendering stuff
 	// else if ( (mouse_x > TextTexture_R[Main_Instruct].x) && (mouse_x < TextTexture_R[Main_Instruct].x + TextTexture_R[Main_Instruct].w) && (mouse_y > TextTexture_R[Main_Instruct].y) && (mouse_y < TextTexture_R[Main_Instruct].y + TextTexture_R[Main_Instruct].h)){
 	// 	overInstruct = true;
@@ -79,6 +93,48 @@ int handle_board_mouse(){
 	return result;
 }
 
+
+
+
+string ping_server(fd_set* server_set, int max_connection, int client_socket, timeval quick){
+	string message = "";
+	char buffer[STREAM_SIZE];
+	int incoming_stream;
+
+	// reset fd_set each time
+	FD_ZERO(server_set);
+	FD_SET(client_socket, server_set);
+	
+	// select will get any messages from server without waiting
+	int incoming_action = select(
+		max_connection + 1, server_set, nullptr, nullptr, &quick
+	);
+
+	cout << to_string(incoming_action) << endl;
+
+	if (FD_ISSET(client_socket, server_set)){
+		incoming_stream = read(client_socket, buffer, STREAM_SIZE);
+
+		if (incoming_stream == 0){
+			// server_socket is no longer connected
+			close(client_socket);
+			FD_CLR(client_socket, server_set);
+			cerr << "server disconnected, exiting." << endl;
+			exit(1);
+		}
+		else {
+			// handle the message
+			// terminate char array for string handling
+			buffer[incoming_stream] = '\0';
+			message = buffer;
+
+			cout << "Message received from server: " << message << endl;
+			
+		}
+	}
+
+	return message;
+}
 
 
 
@@ -107,7 +163,7 @@ int main(int argc, char *argv[]){
 
 
 	// or 0 as last param
-	client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	client_socket = socket(AF_INET, SOCK_STREAM, 0);
 	if (client_socket < 0) {
     	cerr << "Error creating client socket, exiting..." << endl;
 		exit(1);
@@ -132,9 +188,9 @@ int main(int argc, char *argv[]){
 
 
 	// get connection message from server
-	int action;
-    action = read(client_socket, buffer, 255);
-    if (action < 0){
+	int out;
+    out = read(client_socket, buffer, 255);
+    if (out < 0){
     	cerr << "Error getting message from server, exiting..." << endl;
     	exit(1);
     }
@@ -148,72 +204,30 @@ int main(int argc, char *argv[]){
     // attempt to start the game 
     while (!start){
     	// clear buffer
-    	// memset(buffer, 0, 255);
-    	// // if anyone else started the game, server will notify
-    	// action = read(client_socket, buffer, 255);
-	    // if (action < 0){
-	    // 	cerr << "Error getting message from server, exiting..." << endl;
-	    // 	exit(1);
-	    // }
-
-	    // // handle message from server
-	    // message = buffer;
-	    // if (message.compare("Game is starting.") == 0){
-	    // 	cout << message << endl;
-	    // 	start = true;
-	    // 	break;
-	    // }
-	    // else {
-	    // 	cout << "From server: " << message << endl;
-	    // }
-
-
-
     	memset(buffer, 0, 255);
-    	fgets(buffer, 255, stdin);	// get message from client
+    	fgets(buffer, 255, stdin);	// get client message from console
 
-    	// check first if game was started by someone else
-    	if (game_started){
-    		start = true;
-    	}
-		else {
-			// send message to server ("start" will start game)
-		    action = write(client_socket, buffer, strlen(buffer));
-		    if (action < 0){
-		        cerr << "Error sending message to server, exiting..." << endl;
-		        exit(1);
-		    }
-		}    	
-    	
-
-	    // server will send message either way; retrieve it
-	    action = read(client_socket, buffer, 255);
-	    if (action < 0){
-	    	cerr << "Error getting message from server, exiting..." << endl;
-	    	exit(1);
+		// send message to server ("start" will confirm on server-side)
+	    out = write(client_socket, buffer, strlen(buffer));
+	    if (out < 0){
+	        cerr << "Error sending message to server, exiting..." << endl;
+	        exit(1);
 	    }
 
-	    // handle message from server
-	    message = buffer;
-	    if (message.compare("Game is starting.") == 0){
-	    	cout << message << endl;
+	    // if started, open up the gui, then listen for your turn
+	    if (strncmp(buffer, "start", 5) == 0){
 	    	start = true;
 	    }
-	    else {
-	    	cout << "From server: " << message << endl;
-	    }
-	    
-
     }
 
 
 
 
-    // when game starts, render board
+    // when game starts, load all media
+    // and initialize all static SDL/GUI functionality
 
+    // initialize sdl
     int success;
-    SDL_Window* window = NULL;
-
     success = SDL_Init(SDL_INIT_VIDEO);
 
     if (success < 0){
@@ -221,6 +235,9 @@ int main(int argc, char *argv[]){
     	exit(1);
     }
 
+
+    // initialize window for GUI
+    SDL_Window* window = NULL;
     window = SDL_CreateWindow(
     	"CLUE!", 
     	SDL_WINDOWPOS_UNDEFINED, 
@@ -237,7 +254,7 @@ int main(int argc, char *argv[]){
 
 
 
-	// load image and render
+	// initialize renderer (will draw on the window)
 	SDL_Renderer* renderer = SDL_CreateRenderer(
 		window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC
 	);
@@ -245,16 +262,17 @@ int main(int argc, char *argv[]){
 		printf("couldn't make renderer; error: %s\n", SDL_GetError() );
 	}
 	else{
-		//set renderer draw colour
+		// set renderer draw colour
 		SDL_SetRenderDrawColor( renderer, 0, 0, 0, 0xFF );	// black
 
-		//initialize png loading
+		// initialize png and jpg loading
 		int img_flags = IMG_INIT_PNG | IMG_INIT_JPG;
 		if (!(IMG_Init(img_flags) & img_flags)){
 			printf("couldn't initialize png and jpg, error: %s\n", IMG_GetError());
 		}
 	}
 
+	// load clue board image
 	SDL_Texture* board = NULL;
     SDL_Rect backgroundRect = {0, 0, SCREEN_WIDTH,SCREEN_HEIGHT};
 
@@ -263,49 +281,120 @@ int main(int argc, char *argv[]){
 		cerr << "Couldn't load board... exiting\n" << endl;
 		exit(1);
 	}
-	SDL_RenderClear(renderer);
-	SDL_RenderCopy(renderer, board, NULL, &backgroundRect);
-	SDL_RenderPresent(renderer);	// update screen
+
+	// LOAD ALL OTHER IMAGES HERE 
 
 
 
 
 
+	// we need reading from socket to be instantaneous
+	// since render is not maintainable
+	// fd_set select is able to do that for us
+	// define a quick timeout so select returns immediately
+	fd_set server_set;	
+	int max_connection = client_socket;
+	struct timeval quick;
+	quick.tv_sec = 0;
+	quick.tv_usec = 100000;	// 0.1 seconds
 
-	// first pass at event handling!
-	// print something if we click on top left corner of rendered window
+
+
+
 	SDL_Event e;
 	bool quit = false;
+	bool premature_quit = false;	// if someone exits their window
+	string action;
 	// bool handled = false;
 
+	// SDL_RenderClear(renderer);
+
+
 	
+	// this is the main loop for each client
+	// different functionality depending on whether it is your turn
+	// we also render every iteration, since the game state changes
 	while (!quit){
-		// get mouse information at start of every iteration
+		// wait on any message from server
+		// different messages will correspond to different logic
+		// e.g. turn start, or change in game state from other player's turn
+
+		SDL_RenderClear(renderer);
+		
+		SDL_RenderCopy(renderer, board, NULL, &backgroundRect);
+
+		SDL_RenderPresent(renderer);	// update screen 
+
+		cout << "plz" << endl;
+		
+
+
+		// quick ping server to see if any messages came in
+		action = ping_server(
+			&server_set, max_connection, client_socket, quick
+		);
+
+		cout << action << endl;
+
+		if (action.compare(navigate_accuse_str) == 0){
+			cout << "GO INTO MOUSE HANDLING HERE" << endl;
+			// probably want an inner loop. we'll probably need to render in that inner loop too unfortunately
+			/* e.g.
+			while (move not handled){
+				render
+				while (SDL_PollEvent(&e)){
+					etc
+				}
+			}
+			*/
+		}
+		
+
+
+		
+		// get mouse information
 		int mouse_output = handle_board_mouse();
 
+		// SDL_WaitEvent(&e);	this is more efficient, but 
+		// can freeze the board state if player is inactive
+		// 
 	    while (SDL_PollEvent(&e)){
 	        if (e.type == SDL_QUIT){
 	            quit = true;
+	            premature_quit = true;
 	        }
 	        else if ((e.type == SDL_MOUSEBUTTONDOWN) && (e.button.button == SDL_BUTTON_LEFT)){
 	        	if (mouse_output == -10){
-	        		cout << "generic click" << endl;
+	        		cout << "boundary click" << endl;
 	        	}
 	        	else if (mouse_output == 1){
 	        		cout << "TOP LEFT CLICK!" << endl;
+	        	}
+	        	else if (mouse_output == 2){
+	        		cout << "TOP RIGHT CLICK!" << endl;
+	        	}
+	        	else if (mouse_output == 3){
+	        		cout << "BOTTOM LEFT CLICK!" << endl;
+	        	}
+	        	else if (mouse_output == 4){
+	        		cout << "BOTTOM RIGHT CLICK!" << endl;
 	        	}
 	        	else {
 	        		cout << "invalid click?" << endl;
 	        	}
 	            
 	            // quit = true;
-	        }
-	        // otherwise, invalid event; retry
-	        
+	        }	        
 	    }
+
+	    
+
+	    
 	}
 
 	
+
+	// at this point, game has ended.
 
     // clear memory used by SDL
 	SDL_DestroyWindow( window );
@@ -317,7 +406,11 @@ int main(int argc, char *argv[]){
 
     // }
 
-    // close(client_socket);
+    close(client_socket);
     return 0;
 
 }
+
+
+
+

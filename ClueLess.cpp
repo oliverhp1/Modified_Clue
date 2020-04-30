@@ -35,7 +35,7 @@ int main(int argc, char *argv[]){
 	int n_clients, tmp_id;
 
 	Server server(port, MAX_CLIENTS, MAX_PENDING_CONN, STREAM_SIZE);
-	server.initialize();
+	server.initialize();	// all clients connect here
 
 	n_clients = server.get_n_clients();
 
