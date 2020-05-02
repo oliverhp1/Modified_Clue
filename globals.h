@@ -51,8 +51,8 @@ extern string request_location, request_player, request_weapon;
 extern string accuse_location, wrong_accusation;
 
 extern string navigate_stay_str, suggest_accuse_str, accuse_pass_str;
-extern string start_str, navigate_accuse_str, force_stay_str;
-extern string check_hand, check_state;
+extern string start_str, navigate_accuse_str, force_stay_str, force_move;
+extern string check_hand, check_state, turn_end_str;
 
 
 extern string invalid_input, no_show_individual;

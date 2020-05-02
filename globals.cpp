@@ -258,7 +258,7 @@ string accuse_location = "In what room?\r\n\t";
 string request_weapon = "With what weapon?\r\n\t";
 
 // all used in gameplay execute_turn
-string start_str = "";		// Your turn.
+string start_str = "Your turn.";
 string navigate_stay_str = "Do you want to navigate or stay?";
 string suggest_accuse_str = "Do you want to suggest, accuse, or pass?";
 string accuse_pass_str = "Do you want to accuse or pass?";
@@ -266,8 +266,11 @@ string navigate_accuse_str = "Do you want to navigate or accuse?";
 string force_stay_str = "You have no valid moves";
 string check_hand = "Check hand? [y]/[n]: ";
 string check_state = "Check player locations? [y]/[n]: ";
+string turn_end_str = "Turn ended.";
 
-string invalid_input = "Invalid input, try again:";
+string invalid_input = "Invalid input.";
+
+string force_move = "Only one choice for navigation.";
 
 string wrong_accusation = "You guessed incorrectly; deactivating...";
 string no_show_individual = "You do not have any of the suggested cards.";

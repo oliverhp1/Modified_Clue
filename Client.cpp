@@ -110,7 +110,7 @@ string ping_server(fd_set* server_set, int max_connection, int client_socket, ti
 		max_connection + 1, server_set, nullptr, nullptr, &quick
 	);
 
-	cout << to_string(incoming_action) << endl;
+	// cout << to_string(incoming_action) << endl;
 
 	if (FD_ISSET(client_socket, server_set)){
 		incoming_stream = read(client_socket, buffer, STREAM_SIZE);
@@ -304,8 +304,9 @@ int main(int argc, char *argv[]){
 	SDL_Event e;
 	bool quit = false;
 	bool premature_quit = false;	// if someone exits their window
-	string action;
-	// bool handled = false;
+	string action, response;
+	int mouse_output, incoming_stream;;
+	bool turn_end = false;
 
 	// SDL_RenderClear(renderer);
 
@@ -325,7 +326,7 @@ int main(int argc, char *argv[]){
 
 		SDL_RenderPresent(renderer);	// update screen 
 
-		cout << "plz" << endl;
+		// cout << "plz" << endl;	// for debugging
 		
 
 
@@ -334,38 +335,190 @@ int main(int argc, char *argv[]){
 			&server_set, max_connection, client_socket, quick
 		);
 
-		cout << action << endl;
+		// we will have different conditionals for your turn vs 
+		// other actions like getting suggested 
+		// on the server side, receive confirmation, before going into the type of move
+		if (action.compare(start_str) == 0){
+			response = "confirmed.";
+			out = write(client_socket, response.c_str(), response.size() + 2);
+		    if (out < 0){
+		        cerr << "Error sending message to server, exiting..." << endl;
+		        exit(1);
+		    }
 
-		if (action.compare(navigate_accuse_str) == 0){
-			cout << "GO INTO MOUSE HANDLING HERE" << endl;
-			// probably want an inner loop. we'll probably need to render in that inner loop too unfortunately
-			/* e.g.
-			while (move not handled){
-				render
-				while (SDL_PollEvent(&e)){
-					etc
-				}
-			}
-			*/
+			cout << "turn starting!" << endl;
+
+			// get initial turn action possibilities
+			incoming_stream = read(client_socket, buffer, STREAM_SIZE);
+			buffer[incoming_stream] = '\0';
+			action = buffer;
+
+			cout << "first action: " << action << endl;
+
+			turn_end = false;
+			// iterate until turn has concluded
+			while (!turn_end){
+				// server will tell us what moves are possible
+				// unfortunately we can't just let the server handle everything
+				
+				// since we need to render highlights and whatnot
+					// ALTHOUGH we can handle that later separately
+					// using only the action string??
+
+				// no, we will need to handle stuff in here
+				// e.g. if you navigate, we need to know whether it's automatic or choice
+
+
+				
+
+				// get player move
+			
+				// need to render in the inner loop as well
+				SDL_RenderClear(renderer);
+				SDL_RenderCopy(renderer, board, NULL, &backgroundRect);
+				
+				// also render board highlighting here!
+
+				SDL_RenderPresent(renderer);
+
+
+				// now poll for event
+				// get mouse information
+				mouse_output = handle_board_mouse();
+
+				// check for mouse click, else do nothing
+			    while (SDL_PollEvent(&e)){
+			        if (e.type == SDL_QUIT){
+			            quit = true;
+			            premature_quit = true;
+			        }
+			        else if (!turn_end && (e.type == SDL_MOUSEBUTTONDOWN) && (e.button.button == SDL_BUTTON_LEFT)){
+			        	if (mouse_output == -10){
+			        		cout << "boundary click" << endl;
+			        		turn_end = false;
+			        	}
+			        	else if (mouse_output == 1){
+			        		cout << "TOP LEFT CLICK!" << endl;
+
+			        		// send to server
+			        		response = "navigate";
+
+			        		// usually buffer has 2 characters at end for termination
+			        		// so add this to the size to send the whole string
+						    out = write(client_socket, response.c_str(), response.size() + 2);
+						    if (out < 0){
+						        cerr << "Error sending message to server, exiting..." << endl;
+						        exit(1);
+						    }
+
+						    // after we write to server, expect a response
+						    // update action according to message from server
+						    action = ping_server(
+								&server_set, max_connection, client_socket, quick
+							);
+
+
+						    // TODO: we don't really need to do anything here
+						    // since the next iteration will handle all valid (or invalid) inputs
+						    // after the click goes to the server
+						    /*
+							if (action.compare(invalid_input) == 0){
+								// do nothing, we're not supposed to be navigating
+							}
+							*/
+							if (action.compare(force_move) == 0){
+								// move player automatically
+								// probably don't need to do anything, just render on the next iteration?
+								// actually, if this is triggered, we will get two messages?
+								action = ping_server(
+									&server_set, max_connection, client_socket, quick
+								);
+							}
+							// else if (action.compare(request_location) == 0){
+							// 	// need to get location
+							// 	// this will need to wait till the next iteration
+							//	// and this can get handled automatically
+							// }
+						    
+			        	}
+			        	else if (mouse_output == 2){
+			        		cout << "TOP RIGHT CLICK!" << endl;
+			        		response = "pass";
+			        		out = write(client_socket, response.c_str(), response.size() + 2);
+						    if (out < 0){
+						        cerr << "Error sending message to server, exiting..." << endl;
+						        exit(1);
+						    }
+
+						    // get response from server
+						    action = ping_server(
+								&server_set, max_connection, client_socket, quick
+							);
+							if (action.compare(turn_end_str) == 0) turn_end = true;
+						    
+			        	}
+			        	else if (mouse_output == 3){
+			        		cout << "BOTTOM LEFT CLICK!" << endl;
+			        		response = "Hall";
+
+			        		out = write(client_socket, response.c_str(), response.size() + 2);
+						    if (out < 0){
+						        cerr << "Error sending message to server, exiting..." << endl;
+						        exit(1);
+						    }
+
+						    // get response from server
+						    action = ping_server(
+								&server_set, max_connection, client_socket, quick
+							);
+
+			        	}
+			        	else if (mouse_output == 4){
+			        		cout << "BOTTOM RIGHT CLICK!" << endl;
+			        		response = "Study";
+
+			        		out = write(client_socket, response.c_str(), response.size() + 2);
+						    if (out < 0){
+						        cerr << "Error sending message to server, exiting..." << endl;
+						        exit(1);
+						    }
+
+						    // and get response
+						    action = ping_server(
+								&server_set, max_connection, client_socket, quick
+							);
+
+
+			        	}
+			        	else {
+			        		turn_end = false;
+			        		cout << "invalid click?" << endl;
+			        	}
+			        }	        
+			    }
+
+			    
+
+			}	
 		}
-		
 
 
-		
-		// get mouse information
-		int mouse_output = handle_board_mouse();
+		// looks like we need this to maintain the gui, else it disappears
+		mouse_output = handle_board_mouse();
 
 		// SDL_WaitEvent(&e);	this is more efficient, but 
 		// can freeze the board state if player is inactive
-		// 
-	    while (SDL_PollEvent(&e)){
+		while (SDL_PollEvent(&e)){
 	        if (e.type == SDL_QUIT){
 	            quit = true;
 	            premature_quit = true;
 	        }
 	        else if ((e.type == SDL_MOUSEBUTTONDOWN) && (e.button.button == SDL_BUTTON_LEFT)){
+	        	turn_end = true;
 	        	if (mouse_output == -10){
 	        		cout << "boundary click" << endl;
+	        		
+
 	        	}
 	        	else if (mouse_output == 1){
 	        		cout << "TOP LEFT CLICK!" << endl;
@@ -380,15 +533,20 @@ int main(int argc, char *argv[]){
 	        		cout << "BOTTOM RIGHT CLICK!" << endl;
 	        	}
 	        	else {
+	        		turn_end = false;
 	        		cout << "invalid click?" << endl;
 	        	}
-	            
-	            // quit = true;
 	        }	        
 	    }
+		
+
+
+		
+		
 
 	    
-
+	    // each iteration of the main client game loop
+	    // cout << "one iteration" << endl;	// for debugging
 	    
 	}
 
