@@ -38,36 +38,66 @@ SDL_Texture* load_image(string path, SDL_Renderer* renderer){
  * this method returns an int depending on where on the board the mouse is
  * it is used in tandem with a mouse click event
  * to decide what gameplay logic to execute
- * return: int corresponding to board location integers
- * 		-10 corresponds to any other location (no special function)
- * 		ADD OTHER SPECIAL INTS HERE AS THEY COME UP!
+ * return: string corresponding to board action
+ *	using a magic number or enum works as well, but this is easier
  */
-int handle_board_mouse(){		
+string handle_board_mouse(){
+	// can use SCREEN_WIDTH and SCREEN_HEIGHT if needed
 	int mouse_x = 0;
 	int mouse_y = 0;		// mouse coordinates
 	
-	int result = -10;
+	string result = "empty space";
 
 	SDL_GetMouseState(&mouse_x, &mouse_y);
 
 	// cout << "x, y = " << mouse_x << ", " << mouse_y << endl;	// for debugging purposes
+	// get actions
+	if ((mouse_x > 26) && (mouse_x < 157) && (mouse_y > 14) && (mouse_y < 48)){
+		result = "navigate";
+	}
+	else if ((mouse_x > 26) && (mouse_x < 157) && (mouse_y > 58) && (mouse_y < 91)){
+		result = "suggest";
+	}
+	else if ((mouse_x > 573) && (mouse_x < 705) && (mouse_y > 15) && (mouse_y < 48)){
+		result = "accuse";
+	}
+	else if ((mouse_x > 573) && (mouse_x < 705) && (mouse_y > 58) && (mouse_y < 91)){
+		result = "pass";
+	}
 
-	if ((mouse_x > 0) && (mouse_x < SCREEN_WIDTH / 2) && (mouse_y > 0) && (mouse_y < SCREEN_HEIGHT / 2)){
-		// TOP LEFT
-		result = 1;
+	else if ((mouse_x > 142) && (mouse_x < 229) && (mouse_y > 123) && (mouse_y < 217)){
+		result = "Study";
 	}
-	else if ((mouse_x < SCREEN_WIDTH) && (mouse_x >= SCREEN_WIDTH / 2) && (mouse_y > 0) && (mouse_y < SCREEN_HEIGHT / 2)){
+	else if ((mouse_x > 316) && (mouse_x < 404) && (mouse_y > 123) && (mouse_y < 217)){
+		result = "Hall";
+	}
+	else if ((mouse_x > 492) && (mouse_x < 577) && (mouse_y > 123) && (mouse_y < 217)){
+		result = "Lounge";
+	}
+	else if ((mouse_x > 142) && (mouse_x < 229) && (mouse_y > 315) && (mouse_y < 405)){
+		result = "Library";
+	}
+	else if ((mouse_x > 142) && (mouse_x < 229) && (mouse_y > 123) && (mouse_y < 217)){
 		// TOP RIGHT
-		result = 2;
+		result = "4";
 	}
-	else if ((mouse_x > 0) && (mouse_x < SCREEN_WIDTH / 2) && (mouse_y < SCREEN_HEIGHT) && (mouse_y > SCREEN_HEIGHT / 2)){
-		// BOTTOM LEFT
-		result = 3;
-	}
-	else if ((mouse_x < SCREEN_WIDTH) && (mouse_x > SCREEN_WIDTH / 2) && (mouse_y < SCREEN_HEIGHT) && (mouse_y > SCREEN_HEIGHT / 2)){
+	else if ((mouse_x > 142) && (mouse_x < 229) && (mouse_y > 123) && (mouse_y < 217)){
 		// TOP RIGHT
-		result = 4;
+		result = "4";
 	}
+	else if ((mouse_x > 142) && (mouse_x < 229) && (mouse_y > 123) && (mouse_y < 217)){
+		// TOP RIGHT
+		result = "4";
+	}
+	else if ((mouse_x > 142) && (mouse_x < 229) && (mouse_y > 123) && (mouse_y < 217)){
+		// TOP RIGHT
+		result = "4";
+	}
+	else if ((mouse_x > 142) && (mouse_x < 229) && (mouse_y > 123) && (mouse_y < 217)){
+		// TOP RIGHT
+		result = "4";
+	}
+	
 
 	// can use these for ease if we're custom rendering stuff
 	// else if ( (mouse_x > TextTexture_R[Main_Instruct].x) && (mouse_x < TextTexture_R[Main_Instruct].x + TextTexture_R[Main_Instruct].w) && (mouse_y > TextTexture_R[Main_Instruct].y) && (mouse_y < TextTexture_R[Main_Instruct].y + TextTexture_R[Main_Instruct].h)){
@@ -89,6 +119,11 @@ int handle_board_mouse(){
 	// else{
 	// 	SDL_RenderCopyEx(gRenderer, TextTextures[Main_Play_H], NULL, &TextTexture_R[Main_Play_H], 0, NULL, SDL_FLIP_NONE);
 	// }
+
+
+	// this will make it very quick to figure out what pixels to click 
+	// result = "(x, y) = (" + to_string(mouse_x) + ", " + to_string(mouse_y) + ")";
+
 
 	return result;
 }
@@ -304,8 +339,8 @@ int main(int argc, char *argv[]){
 	SDL_Event e;
 	bool quit = false;
 	bool premature_quit = false;	// if someone exits their window
-	string action, response;
-	int mouse_output, incoming_stream;;
+	string action, response, mouse_output;
+	int incoming_stream;;
 	bool turn_end = false;
 
 	// SDL_RenderClear(renderer);
@@ -393,12 +428,14 @@ int main(int argc, char *argv[]){
 			            premature_quit = true;
 			        }
 			        else if (!turn_end && (e.type == SDL_MOUSEBUTTONDOWN) && (e.button.button == SDL_BUTTON_LEFT)){
-			        	if (mouse_output == -10){
+			        	cout << "click: " << mouse_output << endl;
+
+			        	if (mouse_output.compare("invalid") == 0){
 			        		cout << "boundary click" << endl;
 			        		turn_end = false;
 			        	}
-			        	else if (mouse_output == 1){
-			        		cout << "TOP LEFT CLICK!" << endl;
+			        	else if (mouse_output.compare("navigate") == 0){
+			        		// cout << "TOP LEFT CLICK!" << endl;
 
 			        		// send to server
 			        		response = "navigate";
@@ -441,8 +478,8 @@ int main(int argc, char *argv[]){
 							// }
 						    
 			        	}
-			        	else if (mouse_output == 2){
-			        		cout << "TOP RIGHT CLICK!" << endl;
+			        	else if (mouse_output.compare("pass") == 0){
+			        		// cout << "TOP RIGHT CLICK!" << endl;
 			        		response = "pass";
 			        		out = write(client_socket, response.c_str(), response.size() + 2);
 						    if (out < 0){
@@ -457,8 +494,7 @@ int main(int argc, char *argv[]){
 							if (action.compare(turn_end_str) == 0) turn_end = true;
 						    
 			        	}
-			        	else if (mouse_output == 3){
-			        		cout << "BOTTOM LEFT CLICK!" << endl;
+			        	else if (mouse_output.compare("Hall") == 0){
 			        		response = "Hall";
 
 			        		out = write(client_socket, response.c_str(), response.size() + 2);
@@ -473,8 +509,7 @@ int main(int argc, char *argv[]){
 							);
 
 			        	}
-			        	else if (mouse_output == 4){
-			        		cout << "BOTTOM RIGHT CLICK!" << endl;
+			        	else if (mouse_output.compare("Study") == 0){
 			        		response = "Study";
 
 			        		out = write(client_socket, response.c_str(), response.size() + 2);
@@ -492,7 +527,9 @@ int main(int argc, char *argv[]){
 			        	}
 			        	else {
 			        		turn_end = false;
-			        		cout << "invalid click?" << endl;
+			        		// cout << "invalid click?" << endl;
+
+			        		cout << "empty click?" << mouse_output << endl;
 			        	}
 			        }	        
 			    }
@@ -515,27 +552,27 @@ int main(int argc, char *argv[]){
 	        }
 	        else if ((e.type == SDL_MOUSEBUTTONDOWN) && (e.button.button == SDL_BUTTON_LEFT)){
 	        	turn_end = true;
-	        	if (mouse_output == -10){
+	        	if (mouse_output.compare("invalid") == 0){
 	        		cout << "boundary click" << endl;
 	        		
 
 	        	}
-	        	else if (mouse_output == 1){
-	        		cout << "TOP LEFT CLICK!" << endl;
-	        	}
-	        	else if (mouse_output == 2){
-	        		cout << "TOP RIGHT CLICK!" << endl;
-	        	}
-	        	else if (mouse_output == 3){
-	        		cout << "BOTTOM LEFT CLICK!" << endl;
-	        	}
-	        	else if (mouse_output == 4){
-	        		cout << "BOTTOM RIGHT CLICK!" << endl;
-	        	}
-	        	else {
-	        		turn_end = false;
-	        		cout << "invalid click?" << endl;
-	        	}
+	        	// else if (mouse_output.compare()){
+	        	// 	cout << "TOP LEFT CLICK!" << endl;
+	        	// }
+	        	// else if (mouse_output == 2){
+	        	// 	cout << "TOP RIGHT CLICK!" << endl;
+	        	// }
+	        	// else if (mouse_output == 3){
+	        	// 	cout << "BOTTOM LEFT CLICK!" << endl;
+	        	// }
+	        	// else if (mouse_output == 4){
+	        	// 	cout << "BOTTOM RIGHT CLICK!" << endl;
+	        	// }
+	        	// else {
+	        	// 	turn_end = false;
+	        	// 	cout << "invalid click?" << endl;
+	        	// }
 	        }	        
 	    }
 		
