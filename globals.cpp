@@ -252,10 +252,10 @@ void populate_bridge(){
 
 
 // strings used for cli communication
-string request_location = "Where would you like to move?\r\n\t";
-string request_player = "Who do you think committed the crime?\r\n\t";
-string accuse_location = "In what room?\r\n\t";
-string request_weapon = "With what weapon?\r\n\t";
+string request_location = "Where would you like to move?";
+string request_player = "Who do you think committed the crime?";
+string accuse_location = "In what room?";
+string request_weapon = "With what weapon?";
 
 // all used in gameplay execute_turn
 string start_str = "Your turn.";

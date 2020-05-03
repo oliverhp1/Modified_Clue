@@ -454,28 +454,12 @@ int main(int argc, char *argv[]){
 								&server_set, max_connection, client_socket, quick
 							);
 
-
-						    // TODO: we don't really need to do anything here
-						    // since the next iteration will handle all valid (or invalid) inputs
-						    // after the click goes to the server
-						    /*
-							if (action.compare(invalid_input) == 0){
-								// do nothing, we're not supposed to be navigating
-							}
-							*/
 							if (action.compare(force_move) == 0){
-								// move player automatically
-								// probably don't need to do anything, just render on the next iteration?
-								// actually, if this is triggered, we will get two messages?
+								// don't need to do anything, just render on the next iteration
 								action = ping_server(
 									&server_set, max_connection, client_socket, quick
 								);
 							}
-							// else if (action.compare(request_location) == 0){
-							// 	// need to get location
-							// 	// this will need to wait till the next iteration
-							//	// and this can get handled automatically
-							// }
 						    
 			        	}
 			        	else if (mouse_output.compare("pass") == 0){
@@ -522,6 +506,32 @@ int main(int argc, char *argv[]){
 						    action = ping_server(
 								&server_set, max_connection, client_socket, quick
 							);
+
+
+			        	}
+			        	else if (mouse_output.compare("suggest") == 0){
+			        		response = "suggest";
+
+			        		out = write(client_socket, response.c_str(), response.size() + 2);
+						    if (out < 0){
+						        cerr << "Error sending message to server, exiting..." << endl;
+						        exit(1);
+						    }
+
+						    // and get response
+						    action = ping_server(
+								&server_set, max_connection, client_socket, quick
+							);
+
+							if (action.compare(request_player) == 0){
+								/* KICK OFF SUGGESTION METHOD HERE
+								we'll need to pass in everything we need to render
+								It will also use the strings:
+								accuse_location
+								request_weapon
+								*/
+							}
+
 
 
 			        	}
