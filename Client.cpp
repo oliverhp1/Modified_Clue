@@ -1,5 +1,11 @@
 #include "Client.h"
+#include "globals.h"
+
 #include <netdb.h>
+#include <stdio.h> 
+#include <string.h>
+#include <csignal>
+#include <boost/algorithm/string.hpp>
 
 const int SCREEN_WIDTH = 720;
 const int SCREEN_HEIGHT = 720;
@@ -53,29 +59,29 @@ string handle_board_mouse(){
 	// cout << "x, y = " << mouse_x << ", " << mouse_y << endl;	// for debugging purposes
 	// get actions
 	if ((mouse_x > 26) && (mouse_x < 157) && (mouse_y > 14) && (mouse_y < 48)){
-		result = "navigate";
+		result = navigate_str;
 	}
 	else if ((mouse_x > 26) && (mouse_x < 157) && (mouse_y > 58) && (mouse_y < 91)){
-		result = "suggest";
+		result = suggest_str;
 	}
 	else if ((mouse_x > 573) && (mouse_x < 705) && (mouse_y > 15) && (mouse_y < 48)){
-		result = "accuse";
+		result = accuse_str;
 	}
 	else if ((mouse_x > 573) && (mouse_x < 705) && (mouse_y > 58) && (mouse_y < 91)){
-		result = "pass";
+		result = pass_str;
 	}
 
 	else if ((mouse_x > 142) && (mouse_x < 229) && (mouse_y > 123) && (mouse_y < 217)){
-		result = "Study";
+		result = study;
 	}
 	else if ((mouse_x > 316) && (mouse_x < 404) && (mouse_y > 123) && (mouse_y < 217)){
-		result = "Hall";
+		result = hall;
 	}
 	else if ((mouse_x > 492) && (mouse_x < 577) && (mouse_y > 123) && (mouse_y < 217)){
-		result = "Lounge";
+		result = lounge;
 	}
 	else if ((mouse_x > 142) && (mouse_x < 229) && (mouse_y > 315) && (mouse_y < 405)){
-		result = "Library";
+		result = library;
 	}
 	else if ((mouse_x > 142) && (mouse_x < 229) && (mouse_y > 123) && (mouse_y < 217)){
 		// TOP RIGHT
@@ -129,6 +135,43 @@ string handle_board_mouse(){
 }
 
 
+// this one handles the suggestion screen
+// to avoid duplicate work, just return an int
+// and use the same positions for players and weapons
+// TODO: CAN USE THIS FOR ACCUSE TOO, just handle the int where this method is called
+int handle_suggest_mouse(){
+	// can use SCREEN_WIDTH and SCREEN_HEIGHT if needed
+	int mouse_x = 0;
+	int mouse_y = 0;		// mouse coordinates
+	
+	int result = -1;
+
+	SDL_GetMouseState(&mouse_x, &mouse_y);
+
+	// get actions
+	if ((mouse_x > 93) && (mouse_x < 203) && (mouse_y > 88) && (mouse_y < 209)){
+		result = 1;
+	}
+	else if ((mouse_x > 306) && (mouse_x < 414) && (mouse_y > 88) && (mouse_y < 209)){
+		result = 2;
+	}
+	else if ((mouse_x > 509) && (mouse_x < 618) && (mouse_y > 88) && (mouse_y < 209)){
+		result = 3;
+	}
+	else if ((mouse_x > 93) && (mouse_x < 203) && (mouse_y > 286) && (mouse_y < 395)){
+		result = 4;
+	}
+	else if ((mouse_x > 306) && (mouse_x < 414) && (mouse_y > 286) && (mouse_y < 395)){
+		result = 5;
+	}
+	else if ((mouse_x > 509) && (mouse_x < 618) && (mouse_y > 286) && (mouse_y < 395)){
+		result = 6;
+	}
+
+	return result;
+}
+
+
 
 
 string ping_server(fd_set* server_set, int max_connection, int client_socket, timeval quick){
@@ -173,14 +216,115 @@ string ping_server(fd_set* server_set, int max_connection, int client_socket, ti
 
 
 
+// unfortunate but can't think of more straightforward encapsulations
+void client_suggestion(SDL_Texture* suggest_background, SDL_Renderer* renderer,
+		SDL_Rect* backgroundRect, fd_set* server_set, int max_connection, 
+		int client_socket, timeval quick){
+
+
+	SDL_Event e;
+	string action, response;
+	int suggested_player, mouse_output, out;
+
+	// first get player suggestion
+	bool get_player = true;
+	bool get_weapon = false;
+
+	// iterate until suggestion has concluded
+	while (get_player || get_weapon){
+		// need to render in the inner loop as well
+		SDL_RenderClear(renderer);
+		SDL_RenderCopy(renderer, suggest_background, NULL, backgroundRect);
+		
+		// also render board highlighting here!
+		// we'll need the mouse_output info, so if doing that, stick renderpresent below the poll event while loop
+
+		SDL_RenderPresent(renderer);
+
+
+		// now poll for event
+		// get mouse information
+		mouse_output = handle_suggest_mouse();
+
+		// check for mouse click, else do nothing
+	    while (SDL_PollEvent(&e)){
+	        if ((e.type == SDL_MOUSEBUTTONDOWN) && (e.button.button == SDL_BUTTON_LEFT)){
+	        	cout << "click: " << mouse_output << endl;
+
+	        	// get the area that was clicked on
+	        	// send to server all together at the end.
+	        	if (mouse_output == -1){
+	        		// null click; don't send anything to server
+	        		continue;
+	        	}
+	        	else if (get_player){
+	        		response = card_map[mouse_output];
+	        	}
+	        	else if (get_weapon){
+	        		response = card_map[mouse_output + 6];
+	        	}
+	        	else {
+	        		// should never get here; leave for debugging
+	        		cerr << "error: while loop should've broken" << endl;
+	        		get_player = false;
+	        		get_weapon = false;
+	        		break;
+	        	}
+
+	        	cout << "sending to server: " << response << endl;
+
+	        	// send suggestion to server
+			    out = write(client_socket, response.c_str(), response.size() + 2);
+			    if (out < 0){
+			        cerr << "Error sending message to server, exiting..." << endl;
+			        exit(1);
+			    }
+
+			    // after we write to server, expect a response
+			    // update action according to message from server
+			    	// TODO: THIS MIGHT TAKE A WHILE IF PLAYERS NEED TO DECIDE WHAT CARD TO PICK
+			    	// NESTED INNER LOOP MAKES SENSE, BUT IS A MESS
+			    	// SO PROBABLY MAKE ANOTHER BOOLEAN FLAG IN THE EXISTING STRUCTURE
+			    action = ping_server(
+					server_set, max_connection, client_socket, quick
+				);
+
+				if (action.compare(request_weapon) == 0){
+					get_player = false;
+					get_weapon = true;
+					suggested_player = mouse_output;
+				}
+				else if (action.compare(invalid_input) == 0){
+					// do nothing
+				}
+				else {
+					cout << "SUGGESTION RESULT FROM SERVER:" << endl;
+					cout << action << endl;
+					// HERE WE GET THE OUTPUT OF OUR SUGGESTION
+					// WE ALREADY KNOW THE PLAYER THAT IS GOING TO MOVE (SINCE WE SUGGESTED THEM)
+					// WE NEED TO GET A SEQUENCE OF NUMBERS INDICATING WHO SHOWED WHAT CARD (AND WHO DID NOT HAVE ANY OF THEM)
+				}
+	        }	        
+	    }
+	}
+}
+
+
+
+
 
 
 // note much of the network programming is similar to the server side code
 // this also includes functionality for the GUI (using SDL)
 int main(int argc, char *argv[]){
-	int client_socket, client_id, address_length;
+	int client_socket, client_id, address_length, player_id;
 	struct hostent *server;
 	char buffer[STREAM_SIZE];
+
+	// each client needs this themselves
+	populate_location_map();
+	populate_card_map();
+	populate_bridge();
 
 
 	// get port and host from runtime args
@@ -192,7 +336,7 @@ int main(int argc, char *argv[]){
     server = gethostbyname(argv[1]);
 
     if (server == NULL) {
-        cerr << "Undefined host, exiting...\n" << endl;;
+        cerr << "Undefined host, exiting...\n" << endl;
         exit(1);
     }
 
@@ -222,6 +366,7 @@ int main(int argc, char *argv[]){
 	}
 
 
+
 	// get connection message from server
 	int out;
     out = read(client_socket, buffer, 255);
@@ -231,6 +376,8 @@ int main(int argc, char *argv[]){
     }
 
     cout << "Message from server:\n\t" << buffer << endl;
+
+    // TODO: set player id here
     
 
     bool start = false;
@@ -254,7 +401,6 @@ int main(int argc, char *argv[]){
 	    	start = true;
 	    }
     }
-
 
 
 
@@ -307,9 +453,9 @@ int main(int argc, char *argv[]){
 		}
 	}
 
-	// load clue board image
+	// load clue images
 	SDL_Texture* board = NULL;
-    SDL_Rect backgroundRect = {0, 0, SCREEN_WIDTH,SCREEN_HEIGHT};
+	SDL_Texture* suggest_background = NULL;
 
     board = load_image("images/board.png", renderer);
 	if (board == NULL){
@@ -318,14 +464,22 @@ int main(int argc, char *argv[]){
 	}
 
 	// LOAD ALL OTHER IMAGES HERE 
+	suggest_background = load_image("images/suggest.png", renderer);
+	if (suggest_background == NULL){
+		cerr << "Couldn't load suggest... exiting\n" << endl;
+		exit(1);
+	}
+
+	// create background
+	SDL_Rect backgroundRect = {0, 0, SCREEN_WIDTH,SCREEN_HEIGHT};
 
 
 
 
 
-	// we need reading from socket to be instantaneous
-	// since render is not maintainable
-	// fd_set select is able to do that for us
+	// we need reading from socket to be instantaneous,
+	// since render is not maintainable.
+	// fd_set select is able to do that for us:
 	// define a quick timeout so select returns immediately
 	fd_set server_set;	
 	int max_connection = client_socket;
@@ -339,9 +493,11 @@ int main(int argc, char *argv[]){
 	SDL_Event e;
 	bool quit = false;
 	bool premature_quit = false;	// if someone exits their window
-	string action, response, mouse_output;
-	int incoming_stream;;
+	string action, response, mouse_output, temp_cards;
+	int incoming_stream;
 	bool turn_end = false;
+
+	vector<string> show_cards;
 
 	// SDL_RenderClear(renderer);
 
@@ -350,6 +506,7 @@ int main(int argc, char *argv[]){
 	// this is the main loop for each client
 	// different functionality depending on whether it is your turn
 	// we also render every iteration, since the game state changes
+
 	while (!quit){
 		// wait on any message from server
 		// different messages will correspond to different logic
@@ -423,26 +580,23 @@ int main(int argc, char *argv[]){
 
 				// check for mouse click, else do nothing
 			    while (SDL_PollEvent(&e)){
-			        if (e.type == SDL_QUIT){
+					if (e.type == SDL_QUIT){
 			            quit = true;
 			            premature_quit = true;
 			        }
 			        else if (!turn_end && (e.type == SDL_MOUSEBUTTONDOWN) && (e.button.button == SDL_BUTTON_LEFT)){
 			        	cout << "click: " << mouse_output << endl;
 
-			        	if (mouse_output.compare("invalid") == 0){
+			        	if (mouse_output.compare(invalid_str) == 0){
 			        		cout << "boundary click" << endl;
 			        		turn_end = false;
 			        	}
-			        	else if (mouse_output.compare("navigate") == 0){
-			        		// cout << "TOP LEFT CLICK!" << endl;
-
+			        	else if (mouse_output.compare(navigate_str) == 0){
 			        		// send to server
-			        		response = "navigate";
 
 			        		// usually buffer has 2 characters at end for termination
 			        		// so add this to the size to send the whole string
-						    out = write(client_socket, response.c_str(), response.size() + 2);
+						    out = write(client_socket, mouse_output.c_str(), mouse_output.size() + 2);
 						    if (out < 0){
 						        cerr << "Error sending message to server, exiting..." << endl;
 						        exit(1);
@@ -462,10 +616,30 @@ int main(int argc, char *argv[]){
 							}
 						    
 			        	}
-			        	else if (mouse_output.compare("pass") == 0){
-			        		// cout << "TOP RIGHT CLICK!" << endl;
-			        		response = "pass";
-			        		out = write(client_socket, response.c_str(), response.size() + 2);
+			        	else if (mouse_output.compare(suggest_str) == 0){
+			        		out = write(client_socket, mouse_output.c_str(), mouse_output.size() + 2);
+						    if (out < 0){
+						        cerr << "Error sending message to server, exiting..." << endl;
+						        exit(1);
+						    }
+
+						    // and get response
+						    action = ping_server(
+								&server_set, max_connection, client_socket, quick
+							);
+
+							if (action.compare(request_player) == 0){
+								// kick off suggestion method here
+								client_suggestion(
+									suggest_background, renderer, &backgroundRect,
+									&server_set, max_connection, client_socket, quick
+								);
+
+							}
+
+			        	}
+			        	else if (mouse_output.compare(pass_str) == 0){
+			        		out = write(client_socket, mouse_output.c_str(), mouse_output.size() + 2);
 						    if (out < 0){
 						        cerr << "Error sending message to server, exiting..." << endl;
 						        exit(1);
@@ -478,10 +652,9 @@ int main(int argc, char *argv[]){
 							if (action.compare(turn_end_str) == 0) turn_end = true;
 						    
 			        	}
-			        	else if (mouse_output.compare("Hall") == 0){
-			        		response = "Hall";
-
-			        		out = write(client_socket, response.c_str(), response.size() + 2);
+			        	// TODO: BIN ALL LOCATIONS TOGETHER
+			        	else if (mouse_output.compare(hall) == 0){
+			        		out = write(client_socket, mouse_output.c_str(), mouse_output.size() + 2);
 						    if (out < 0){
 						        cerr << "Error sending message to server, exiting..." << endl;
 						        exit(1);
@@ -493,10 +666,8 @@ int main(int argc, char *argv[]){
 							);
 
 			        	}
-			        	else if (mouse_output.compare("Study") == 0){
-			        		response = "Study";
-
-			        		out = write(client_socket, response.c_str(), response.size() + 2);
+			        	else if (mouse_output.compare(study) == 0){
+			        		out = write(client_socket, mouse_output.c_str(), mouse_output.size() + 2);
 						    if (out < 0){
 						        cerr << "Error sending message to server, exiting..." << endl;
 						        exit(1);
@@ -509,32 +680,7 @@ int main(int argc, char *argv[]){
 
 
 			        	}
-			        	else if (mouse_output.compare("suggest") == 0){
-			        		response = "suggest";
-
-			        		out = write(client_socket, response.c_str(), response.size() + 2);
-						    if (out < 0){
-						        cerr << "Error sending message to server, exiting..." << endl;
-						        exit(1);
-						    }
-
-						    // and get response
-						    action = ping_server(
-								&server_set, max_connection, client_socket, quick
-							);
-
-							if (action.compare(request_player) == 0){
-								/* KICK OFF SUGGESTION METHOD HERE
-								we'll need to pass in everything we need to render
-								It will also use the strings:
-								accuse_location
-								request_weapon
-								*/
-							}
-
-
-
-			        	}
+			        	
 			        	else {
 			        		turn_end = false;
 			        		// cout << "invalid click?" << endl;
@@ -547,7 +693,25 @@ int main(int argc, char *argv[]){
 			    
 
 			}	
-		}
+		}	// TURN ENDS HERE
+
+		// now we need to handle logic that happens when it's not your turn
+		
+		if (action.substr(0, 5).compare("Show:") == 0){
+    		// being forced to show a card
+    		temp_cards = action.substr(5);
+    		cout << " SHOW LOGIC?? "  << temp_cards << endl;
+
+    		boost::split(
+    			show_cards, temp_cards, is_semicolon
+    		);
+
+    		for (int i = 0; i < 2; i++){
+    			cout << show_cards[i] << endl;;
+    		}
+
+    		// handle being suggested in a separate method
+    	}
 
 
 		// looks like we need this to maintain the gui, else it disappears
@@ -562,7 +726,7 @@ int main(int argc, char *argv[]){
 	        }
 	        else if ((e.type == SDL_MOUSEBUTTONDOWN) && (e.button.button == SDL_BUTTON_LEFT)){
 	        	turn_end = true;
-	        	if (mouse_output.compare("invalid") == 0){
+	        	if (mouse_output.compare(invalid_str) == 0){
 	        		cout << "boundary click" << endl;
 	        		
 

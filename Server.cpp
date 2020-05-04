@@ -1,4 +1,5 @@
 #include "Server.h"
+#include "globals.h"
 
 using namespace std;
 /*
@@ -9,14 +10,13 @@ using namespace std;
  	- max_pending (max pending connections on listening socket)
  	- stream_size (size of stream to get from connections)
  */
-Server::Server(int port, int max_clients, int max_pending, int stream_size){
+Server::Server(int port, int max_pending, int stream_size){		//int max_clients, 
 	// initialize relevant server variables
 	this->port = port;
-	this->max_clients = max_clients;
+	// this->max_clients = max_clients;
 	this->max_pending = max_pending;
 	this->stream_size = stream_size;
 	this->n_clients = 0;
-
 
 	for (int i = 0; i < max_clients; i++){
 		socket_tracker[i] = 0;

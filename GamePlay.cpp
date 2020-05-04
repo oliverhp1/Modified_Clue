@@ -1,4 +1,5 @@
 #include "GamePlay.h"
+#include "globals.h"
 
 using namespace std;
 
@@ -164,7 +165,7 @@ void GamePlay::execute_turn(int player_id, Server server, Player* players){
 			call_valid_move(
 				player_id, socket_tracker, valid_moves, server, move, players
 			);
-			if (move.compare("accuse") == 0){
+			if (move.compare(accuse_str) == 0){
 				done = true;
 			}
 		}
@@ -175,7 +176,7 @@ void GamePlay::execute_turn(int player_id, Server server, Player* players){
 				navigate_stay_str, navigate_stay);
 
 			// either navigate or stay
-			if (move.compare("navigate") == 0){
+			if (move.compare(navigate_str) == 0){
 				navigate(player_id, valid_moves, socket_tracker, 
 						 server, &players[player_id]);
 			}
@@ -199,7 +200,7 @@ void GamePlay::execute_turn(int player_id, Server server, Player* players){
 
 			
 			// then, if suggested, accuse or pass options again
-			if (move.compare("suggest") == 0){
+			if (move.compare(suggest_str) == 0){
 				move = get_valid_input(socket_id, server, 
 					accuse_pass_str, accuse_pass);
 
@@ -385,15 +386,18 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 
 		vector<string> overlap_cards;
 
-		if (players[temp_id].hand_contains(location_card)){
-			overlap_cards.push_back(location_suggestion);
+		// push them in order
+		if (players[temp_id].hand_contains(reverse_card_map[player_suggestion])){
+			overlap_cards.push_back(player_suggestion);
 		}
 		if (players[temp_id].hand_contains(reverse_card_map[weapon_suggestion])){
 			overlap_cards.push_back(weapon_suggestion);
 		}
-		if (players[temp_id].hand_contains(reverse_card_map[player_suggestion])){
-			overlap_cards.push_back(player_suggestion);
+		if (players[temp_id].hand_contains(location_card)){
+			overlap_cards.push_back(location_suggestion);
 		}
+		
+		
 
 
 		
@@ -423,8 +427,8 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 		// this isn't very clean but equivalent ','.join code is even messier
 		// for applications with more cards we'd use something more robust
 		if (n_overlap == 3){
-			show_card_str = "Show one of " + overlap_cards[0] + ", "
-				+ overlap_cards[1] + ", or " + overlap_cards[2] + ":\r\n\t";
+			show_card_str = "Show:" + overlap_cards[0] + ";"
+				+ overlap_cards[1] + ";" + overlap_cards[2] + "";
 
 			show_card = get_contained_input(
 				temp_socket, server, show_card_str, overlap_cards
@@ -432,8 +436,8 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 			
 		}
 		else if (n_overlap == 2){
-			show_card_str = "Show one of " + overlap_cards[0]
-				+ " or " + overlap_cards[1] + ":\r\n\t";
+			show_card_str = "Show:" + overlap_cards[0]
+				+ ";" + overlap_cards[1] + "";
 
 			show_card = get_contained_input(
 				temp_socket, server, show_card_str, overlap_cards
@@ -455,8 +459,8 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 		show_card_broadcast = card_map[temp_id + 1] 
 			+ " has shown " + card_map[player_id + 1] + " a card\n";
 
-		show_card_str = card_map[temp_id + 1] 
-			+ " has shown you a card: " + show_card + "\n";
+		show_card_str = "Player has shown you:" + card_map[temp_id + 1] 
+			+ ";" + show_card;
 
 		for (int j = 0; j < n_clients; j++){
 			if (j == player_id){
@@ -570,8 +574,9 @@ void GamePlay::pass(int player_id, int* socket_tracker, Server server){
 	// communicate to all other clients
 	string pass_broadcast = card_map[player_id + 1]
 		+ "\'s turn has ended.\n";
-	// not really necessary with the gui unless we want to notify everyone...
-		// how would we do that?
+
+
+	// not really necessary with the gui 
 
 	// for (int i = 0; i < server.get_n_clients(); i++){
 	// 	if (i != player_id){
@@ -605,10 +610,19 @@ string GamePlay::get_bounded_input(int socket_id, Server server, string message,
 	int bound;
 
 	bool success = false;
+	bool sent = false;
+
 	while (!success){
-		send(socket_id, message.c_str(), message.size(), 0);
+		// only send once
+		if (!sent){
+			send(socket_id, message.c_str(), message.size(), 0);
+			sent = true;
+		}
+		
 
 		input = server.receive_communication(socket_id);
+
+		cout << "received from client: " << input << endl;
 
 
 		// validate input (with the GUI this will probably not be necessary,
@@ -725,19 +739,19 @@ void GamePlay::call_valid_move(int player_id, int* socket_tracker,
 		vector<string> valid_moves, Server server, string action, Player* players){
 
 	// we've gotten valid action; execute corresponding method
-	if (action.compare("navigate") == 0){
+	if (action.compare(navigate_str) == 0){
 		navigate(player_id, valid_moves, socket_tracker, server, &players[player_id]);
 	}
-	else if (action.compare("suggest") == 0){
+	else if (action.compare(suggest_str) == 0){
 		suggest(player_id, socket_tracker, server, players);
 	}
-	else if (action.compare("accuse") == 0){
+	else if (action.compare(accuse_str) == 0){
 		accuse(player_id, socket_tracker, server, &players[player_id]);
 	}
-	else if (action.compare("pass") == 0){
+	else if (action.compare(pass_str) == 0){
 		pass(player_id, socket_tracker, server);
 	}
-	else if (action.compare("stay") == 0){
+	else if (action.compare(stay_str) == 0){
 		// don't do anything
 	}
 	else {

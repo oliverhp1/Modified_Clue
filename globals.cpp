@@ -4,11 +4,9 @@ using namespace std;
 
 
 bool game_started = false;
+int max_clients = 2;
 
-
-
-
-
+Player players[2];
 
 
 
@@ -249,6 +247,10 @@ void populate_bridge(){
 }
 
 
+bool is_semicolon(char c){
+	return c == ';';
+}
+
 
 
 // strings used for cli communication
@@ -278,11 +280,45 @@ string no_show_individual = "You do not have any of the suggested cards.";
 // for validating inputs (probably won't need this with a GUI)
 // these terminating strings are not great, but it's impossible to
 // determine the size of an array using its pointer
-string navigate_stay[] = {"navigate", "stay", ""};
-string navigate_accuse[] = {"navigate", "accuse", ""};
-string suggest_accuse[] = {"suggest", "accuse", "pass", ""};
-string accuse_pass[] = {"accuse", "pass", ""};
 string yes_no[] = {"y", "n", ""};
+
+
+string navigate_str = "navigate";
+string suggest_str = "suggest";
+string accuse_str = "accuse";
+string pass_str = "pass";
+string stay_str = "stay";
+string invalid_str = "invalid";
+
+string navigate_stay[] = {navigate_str, stay_str, ""};
+string navigate_accuse[] = {navigate_str, accuse_str, ""};
+string suggest_accuse[] = {suggest_str, accuse_str, pass_str, ""};
+string accuse_pass[] = {accuse_str, pass_str, ""};
+
+
+
+string scarlet = "Miss Scarlet";
+string plum = "Prof. Plum";
+string peacock = "Mrs. Peacock";
+string green = "Mr. Green";
+string white = "Mrs. White";
+string mustard = "Col. Mustard";
+string rope = "Rope";
+string leadpipe = "Lead Pipe";
+string knife = "Knife";
+string wrench = "Wrench";
+string candlestick = "Candlestick";
+string revolver = "Revolver";
+string study = "Study";
+string hall = "Hall";
+string lounge = "Lounge";
+string library = "Library";
+string billiard = "Billiard Room";
+string dining = "Dining Room";
+string conservatory = "Conservatory";
+string ballroom = "Ballroom";
+string kitchen = "Kitchen";
+
 
 int all_rooms[9] = {1, 3, 5, 9, 11, 13, 17, 19, 21};	// locations
 

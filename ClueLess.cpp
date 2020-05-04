@@ -1,6 +1,7 @@
 #include "Server.h"
-#include "Player.h"
 #include "GamePlay.h"
+
+#include "globals.h"
 
 #define MAX_PENDING_CONN 3
 
@@ -34,7 +35,7 @@ int main(int argc, char *argv[]){
 	// start up server and get connections
 	int n_clients, tmp_id;
 
-	Server server(port, MAX_CLIENTS, MAX_PENDING_CONN, STREAM_SIZE);
+	Server server(port, MAX_PENDING_CONN, STREAM_SIZE);
 	server.initialize();	// all clients connect here
 
 	n_clients = server.get_n_clients();
@@ -45,7 +46,7 @@ int main(int argc, char *argv[]){
 
 
 	// now initialize players
-	Player players[n_clients];
+	// players[n_clients];
 	
 	bool winner[n_clients];		// to track winning/losing conditions
 	bool in_play[n_clients];  

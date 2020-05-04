@@ -1,9 +1,27 @@
 #pragma once
 
-#include "globals.h"
+// #include "globals.h"
 
+#include <iostream>
+#include <unordered_map>
 
-#define MAX_CLIENTS 2   // one per player
+#include <stdio.h>  
+#include <string.h>
+#include <stdlib.h>  
+#include <vector> 
+#include <sstream>
+
+#include <errno.h>  
+#include <unistd.h>
+#include <arpa/inet.h>   
+
+#include <sys/types.h>  
+#include <sys/socket.h>  
+#include <sys/time.h>
+
+#include <netinet/in.h>
+
+#define MAX_CLIENTS 2   // define in globals instead
 #define STREAM_SIZE 1024
 
 
@@ -23,8 +41,8 @@ using namespace std;
  */
 class Server{
 	public:
-		// port, max clients, max pending connections, stream size
-		Server(int, int, int, int);
+		// port, max pending connections, stream size  (max clients now in globals)
+		Server(int, int, int);	// int
 		// ~Server();
 
 		void initialize();	// get client connections; return # clients
@@ -44,7 +62,7 @@ class Server{
 
 		int stream_size;
 		int max_pending, address_length;
-		int max_clients, n_clients;
+		int n_clients;
 
 		// common communication messages to send to clients
 		static string connection_message, start_message, confirm_message;
