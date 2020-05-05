@@ -1,5 +1,8 @@
 #pragma once
 
+#include "Player.h"
+
+
 #include <iostream>
 #include <unordered_map>
 
@@ -18,9 +21,6 @@
 #include <sys/time.h>
 
 #include <netinet/in.h>
-
-#include "Player.h"
-// class Player;
 
 
 
@@ -58,10 +58,10 @@ extern string accuse_location, wrong_accusation;
 
 extern string navigate_stay_str, suggest_accuse_str, accuse_pass_str;
 extern string start_str, navigate_accuse_str, force_stay_str, force_move;
-extern string check_hand, check_state, turn_end_str;
+extern string check_hand, check_state, turn_end_str, end_turn_str;
 
 
-extern string invalid_input, no_show_individual;
+extern string invalid_input, no_show_individual, nobody_showed;
 
 extern string navigate_stay[], suggest_accuse[], accuse_pass[], navigate_accuse[];
 
@@ -72,6 +72,10 @@ extern string rope, leadpipe, knife, wrench, candle, revolver;
 extern string study, hall, lounge, library, billiard, dining, conservatory, ballroom, kitchen;
 
 extern bool is_semicolon(char c);
+
+
+
+
 
 
 

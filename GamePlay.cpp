@@ -348,26 +348,29 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 		players[suggested_id].set_location(location);
 		players[suggested_id].set_just_suggested(true);
 
+		// we don't need to broadcast this; the suggestion broadcast contains
+		// all the info the client needs to know
+		// the client automatically will move players when they are suggested
 
-		string move_message = "You are being moved to the " 
-			+ location_suggestion + "\n";
+		// string move_message = "You are being moved to the " 
+		// 	+ location_suggestion + "\n";
 
-		string broadcast_move = player_suggestion
-			+ " is being moved to the " + location_suggestion + "\n";
+		// string broadcast_move = player_suggestion
+		// 	+ " is being moved to the " + location_suggestion + "\n";
 			
 
-		// notify player being moved
-		send(socket_tracker[suggested_id], move_message.c_str(), move_message.size(), 0);
+		// // notify player being moved
+		// send(socket_tracker[suggested_id], move_message.c_str(), move_message.size(), 0);
 
-		// notify everyone else
-		for (int i = 0; i < n_clients; i++){
-			if (i != (suggested_id)){
-				send(socket_tracker[i], broadcast_move.c_str(), broadcast_move.size(), 0);
-			}
-		}
+		// // notify everyone else
+		// for (int i = 0; i < n_clients; i++){
+		// 	if (i != (suggested_id)){
+		// 		send(socket_tracker[i], broadcast_move.c_str(), broadcast_move.size(), 0);
+		// 	}
+		// }
 
 		// also notify server
-		cout << broadcast_move;
+		// cout << broadcast_move;
 	}
 
 
@@ -379,6 +382,7 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 	int temp_id, card_index, n_overlap, temp_socket;
 	string show_card;
 	string show_card_str, show_card_broadcast, no_show_broadcast, force_show_card;
+	bool finish = false;
 
 	for (int i = 1; i < n_clients; i++){
 		temp_id = (player_id + i) % n_clients;
@@ -398,15 +402,11 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 		}
 		
 		
-
-
-		
 		n_overlap = overlap_cards.size();
 
 		// player does not have any; pass to next player
 		if (n_overlap == 0){
-			no_show_broadcast = card_map[temp_id + 1] + " does not have any "
-				+ "of the suggested cards.\r\n";
+			no_show_broadcast = "No cards:" + card_map[temp_id + 1];
 			
 			for (int j = 0; j < n_clients; j++){
 				if (j == temp_id){
@@ -442,24 +442,37 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 			show_card = get_contained_input(
 				temp_socket, server, show_card_str, overlap_cards
 			);
+
+			cout << "got contained input " << show_card << endl;
 			
 		}
 		else if (n_overlap == 1){
-			show_card = overlap_cards[0];
+			// don't force show, since that conveys information
+			show_card_str = "Show:" + overlap_cards[0] + ";"
+				+ overlap_cards[1] + ";" + overlap_cards[2] + "";
 
-			force_show_card = "You are forced to show card: " 
-				+ show_card + "\r\n";
+			show_card = get_contained_input(
+				temp_socket, server, show_card_str, overlap_cards
+			);
+
+			// show_card = overlap_cards[0];
+
+			// force_show_card = "You are forced to show card: " 
+			// 	+ show_card + "\r\n";
 			
-			send(temp_socket, force_show_card.c_str(), 
-				 force_show_card.size(), 0);
+			// send(temp_socket, force_show_card.c_str(), 
+			// 	 force_show_card.size(), 0);
+		}
+		else {
+			cerr << "error: more than 3 cards matching on suggest!" << endl;
 		}
 
 
 		// we've gotten the card to show, now actually show, and broadcast
-		show_card_broadcast = card_map[temp_id + 1] 
-			+ " has shown " + card_map[player_id + 1] + " a card\n";
+		show_card_broadcast = "Show broadcast:" + card_map[temp_id + 1] 
+			+ ";" + card_map[player_id + 1];
 
-		show_card_str = "Player has shown you:" + card_map[temp_id + 1] 
+		show_card_str = "Look:" + card_map[temp_id + 1] 
 			+ ";" + show_card;
 
 		for (int j = 0; j < n_clients; j++){
@@ -473,9 +486,15 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 			}
 		}
 
+		cout << "waiting for confirmation " << endl;
+
+		finish = get_matching_input(socket_tracker[player_id], server, end_turn_str);
+
+		cout << "got confirmation " << endl;
+
 
 		// card was shown; nobody else needs to show anything
-		break;
+		return 0;
 
 
 		// testing: show all players' hands
@@ -485,6 +504,14 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 		// 	cout << to_string(temp_player.get_hand()[card_index]) << endl;
 		// }
 	}
+
+	// if we get here, nobody had the card. for ease of handling, let the suggesting player know
+	send(socket_tracker[player_id], nobody_showed.c_str(), 
+	 	 nobody_showed.size(), 0);
+
+	// get confirmation
+	finish = get_matching_input(socket_tracker[player_id], server, end_turn_str);
+
 
 
 
@@ -678,6 +705,25 @@ string GamePlay::get_contained_input(int socket_id, Server server,
 	}
 
 	return input;
+}
+
+// basically used to halt gameplay until player sends this message
+bool GamePlay::get_matching_input(int socket_id, Server server, 
+		string match_str){
+
+	string input;
+	bool success = false;
+	
+	while (!success){
+		input = server.receive_communication(socket_id);
+
+		// validate input
+		if (match_str.compare(input) == 0){
+			success = true;
+		}
+	}
+
+	return true;
 }
 
 

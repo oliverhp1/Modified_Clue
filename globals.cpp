@@ -276,6 +276,8 @@ string force_move = "Only one choice for navigation.";
 
 string wrong_accusation = "You guessed incorrectly; deactivating...";
 string no_show_individual = "You do not have any of the suggested cards.";
+string nobody_showed = "Nobody showed.";
+string end_turn_str = "Ending.";
 
 // for validating inputs (probably won't need this with a GUI)
 // these terminating strings are not great, but it's impossible to
@@ -321,6 +323,8 @@ string kitchen = "Kitchen";
 
 
 int all_rooms[9] = {1, 3, 5, 9, 11, 13, 17, 19, 21};	// locations
+
+
 
 
 

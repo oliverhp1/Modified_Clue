@@ -43,6 +43,8 @@ class GamePlay {
 
 		static string get_valid_input(int, Server, string, string[]);
 		static string get_contained_input(int, Server, string, vector<string>);
+		static bool get_matching_input(int, Server, string);
+
 		static void call_valid_move(int, int*, vector<string>, Server, string, Player*);
 
 
