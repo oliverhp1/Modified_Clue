@@ -12,16 +12,30 @@ const int SCREEN_HEIGHT = 720;
 const int suggest_y0 = SCREEN_HEIGHT / 3;
 const int suggest_yf = 2 * SCREEN_HEIGHT / 3;
 
-const int suggest1_x0 = 1 * SCREEN_WIDTH / 7;
-const int suggest1_xf = 2 * SCREEN_WIDTH / 7;
+const int suggest1_x0 = 3 * SCREEN_WIDTH / 28;
+const int suggest1_xf = 9 * SCREEN_WIDTH / 28;
 
-const int suggest2_x0 = 3 * SCREEN_WIDTH / 7;
-const int suggest2_xf = 4 * SCREEN_WIDTH / 7;
+const int suggest2_x0 = 11 * SCREEN_WIDTH / 28;
+const int suggest2_xf = 17 * SCREEN_WIDTH / 28;
 
-const int suggest3_x0 = 5 * SCREEN_WIDTH / 7;
-const int suggest3_xf = 6 * SCREEN_WIDTH / 7;
+const int suggest3_x0 = 19 * SCREEN_WIDTH / 28;
+const int suggest3_xf = 25 * SCREEN_WIDTH / 28;
 
 
+
+const int accuse_y1 = 5 * SCREEN_HEIGHT / 30;
+const int accuse_y2 = 11 * SCREEN_HEIGHT / 30;
+const int accuse_y3 = 13 * SCREEN_HEIGHT / 30;
+const int accuse_y4 = 19 * SCREEN_HEIGHT / 30;
+const int accuse_y5 = 21 * SCREEN_HEIGHT / 30;
+const int accuse_y6 = 27 * SCREEN_HEIGHT / 30;
+
+const int accuse_x1 = 2 * SCREEN_HEIGHT / 20;
+const int accuse_x2 = 5 * SCREEN_HEIGHT / 20;
+const int accuse_x3 = 17 * SCREEN_HEIGHT / 40;
+const int accuse_x4 = 23 * SCREEN_HEIGHT / 40;
+const int accuse_x5 = 15 * SCREEN_HEIGHT / 20;
+const int accuse_x6 = 18 * SCREEN_HEIGHT / 20;
 
 
 
@@ -33,9 +47,20 @@ SDL_Rect suggest_rect1 = {suggest1_x0, suggest_y0, suggest1_xf - suggest1_x0, su
 SDL_Rect suggest_rect2 = {suggest2_x0, suggest_y0, suggest2_xf - suggest2_x0, suggest_yf - suggest_y0};
 SDL_Rect suggest_rect3 = {suggest3_x0, suggest_y0, suggest3_xf - suggest3_x0, suggest_yf - suggest_y0};
 
+SDL_Rect accuse_rect1 = {accuse_x1, accuse_y1, accuse_x2 - accuse_x1, accuse_y2 - accuse_y1};
+SDL_Rect accuse_rect2 = {accuse_x3, accuse_y1, accuse_x4 - accuse_x3, accuse_y2 - accuse_y1};
+SDL_Rect accuse_rect3 = {accuse_x5, accuse_y1, accuse_x6 - accuse_x5, accuse_y2 - accuse_y1};
+SDL_Rect accuse_rect4 = {accuse_x1, accuse_y3, accuse_x2 - accuse_x1, accuse_y4 - accuse_y3};
+SDL_Rect accuse_rect5 = {accuse_x3, accuse_y3, accuse_x4 - accuse_x3, accuse_y4 - accuse_y3};
+SDL_Rect accuse_rect6 = {accuse_x5, accuse_y3, accuse_x6 - accuse_x5, accuse_y4 - accuse_y3};
+SDL_Rect accuse_rect7 = {accuse_x1, accuse_y5, accuse_x2 - accuse_x1, accuse_y6 - accuse_y5};
+SDL_Rect accuse_rect8 = {accuse_x3, accuse_y5, accuse_x4 - accuse_x3, accuse_y6 - accuse_y5};
+SDL_Rect accuse_rect9 = {accuse_x5, accuse_y5, accuse_x6 - accuse_x5, accuse_y6 - accuse_y5};
 
-unordered_map<int, SDL_Rect> suggest_rect_map;
-unordered_map<int, SDL_Rect> accuse_rect_map;	// just for locations
+
+
+unordered_map<int, SDL_Rect> suggest_rect_map;	// for getting suggested
+unordered_map<int, SDL_Rect> accuse_rect_map;	// for suggesting and accusing
 
 
 
@@ -44,7 +69,7 @@ SDL_Texture* suggest_background = NULL;
 
 
 // all cards' textures stored in here
-unordered_map<int, SDL_Texture*> image_map;
+unordered_map<int, SDL_Texture*> card_image_map;
 
 
 
@@ -93,28 +118,74 @@ void load_all_media(SDL_Renderer* renderer){
 	}
 
 
-	// all cards in map
+	// load all cards into map
 	for (int i = 1; i <= 21; i++){
-		// temp: only load available cards
-		if (!((i == 1) || (i == 7) || (i == 9) || (i == 12) || (i == 14) || (i == 15) || (i == 18 ) || (i == 21))) continue;
-
 		SDL_Texture* temp_texture = NULL;
 		temp_texture = load_image("images/" + to_string(i) + ".png", renderer);
 
-		image_map[i] = temp_texture;
+		card_image_map[i] = temp_texture;
 	}
 	
 
 	suggest_rect_map[1] = suggest_rect1;
 	suggest_rect_map[2] = suggest_rect2;
 	suggest_rect_map[3] = suggest_rect3;
-	// suggest_rect_map[4] = suggest_rect4;
-	// suggest_rect_map[5] = suggest_rect5;
-	// suggest_rect_map[6] = suggest_rect6;
+
+	accuse_rect_map[1] = accuse_rect1;
+	accuse_rect_map[2] = accuse_rect2;
+	accuse_rect_map[3] = accuse_rect3;
+	accuse_rect_map[4] = accuse_rect4;
+	accuse_rect_map[5] = accuse_rect5;
+	accuse_rect_map[6] = accuse_rect6;
+	accuse_rect_map[7] = accuse_rect7;
+	accuse_rect_map[8] = accuse_rect8;
+	accuse_rect_map[9] = accuse_rect9;
 }
 
 
+// check socket for messages from server
+// return empty immediately if nothing is written
+// we need this since SDL cannot maintain the images it renders
+// unless we are constantly refreshing the board
+string ping_server(fd_set* server_set, int max_connection, int client_socket, timeval quick){
+	string message = "";
+	char buffer[STREAM_SIZE];
+	int incoming_stream;
 
+	// reset fd_set each time
+	FD_ZERO(server_set);
+	FD_SET(client_socket, server_set);
+	
+	// select will get any messages from server without waiting
+	int incoming_action = select(
+		max_connection + 1, server_set, nullptr, nullptr, &quick
+	);
+
+	// cout << to_string(incoming_action) << endl;
+
+	if (FD_ISSET(client_socket, server_set)){
+		incoming_stream = read(client_socket, buffer, STREAM_SIZE);
+
+		if (incoming_stream == 0){
+			// server_socket is no longer connected
+			close(client_socket);
+			FD_CLR(client_socket, server_set);
+			cerr << "server disconnected, exiting." << endl;
+			exit(1);
+		}
+		else {
+			// handle the message
+			// terminate char array for string handling
+			buffer[incoming_stream] = '\0';
+			message = buffer;
+
+			cout << "Message received from server: " << message << endl;
+			
+		}
+	}
+
+	return message;
+}
 
 
 /*
@@ -129,7 +200,7 @@ string handle_board_mouse(){
 	int mouse_x = 0;
 	int mouse_y = 0;		// mouse coordinates
 	
-	string result = "empty space";
+	string result = empty_space;	// return this if player clicked on nothing
 
 	SDL_GetMouseState(&mouse_x, &mouse_y);
 
@@ -146,6 +217,9 @@ string handle_board_mouse(){
 	}
 	else if ((mouse_x > 573) && (mouse_x < 705) && (mouse_y > 58) && (mouse_y < 91)){
 		result = pass_str;
+	}
+	else if ((mouse_x > 157) && (mouse_x < 287) && (mouse_y > 14) && (mouse_y < 48)){
+		result = stay_str;
 	}
 
 	else if ((mouse_x > 142) && (mouse_x < 229) && (mouse_y > 123) && (mouse_y < 217)){
@@ -229,28 +303,40 @@ int handle_suggest_mouse(){
 
 	SDL_GetMouseState(&mouse_x, &mouse_y);
 
-	// get actions
-	if ((mouse_x > 93) && (mouse_x < 203) && (mouse_y > 88) && (mouse_y < 209)){
+	// get actions based on mouse location
+	if ((mouse_x > accuse_x1) && (mouse_x < accuse_x2) && (mouse_y > accuse_y1) && (mouse_y < accuse_y2)){
 		result = 1;
 	}
-	else if ((mouse_x > 306) && (mouse_x < 414) && (mouse_y > 88) && (mouse_y < 209)){
+	if ((mouse_x > accuse_x3) && (mouse_x < accuse_x4) && (mouse_y > accuse_y1) && (mouse_y < accuse_y2)){
 		result = 2;
 	}
-	else if ((mouse_x > 509) && (mouse_x < 618) && (mouse_y > 88) && (mouse_y < 209)){
+	if ((mouse_x > accuse_x5) && (mouse_x < accuse_x6) && (mouse_y > accuse_y1) && (mouse_y < accuse_y2)){
 		result = 3;
 	}
-	else if ((mouse_x > 93) && (mouse_x < 203) && (mouse_y > 286) && (mouse_y < 395)){
+	if ((mouse_x > accuse_x1) && (mouse_x < accuse_x2) && (mouse_y > accuse_y3) && (mouse_y < accuse_y4)){
 		result = 4;
 	}
-	else if ((mouse_x > 306) && (mouse_x < 414) && (mouse_y > 286) && (mouse_y < 395)){
+	if ((mouse_x > accuse_x3) && (mouse_x < accuse_x4) && (mouse_y > accuse_y3) && (mouse_y < accuse_y4)){
 		result = 5;
 	}
-	else if ((mouse_x > 509) && (mouse_x < 618) && (mouse_y > 286) && (mouse_y < 395)){
+	if ((mouse_x > accuse_x5) && (mouse_x < accuse_x6) && (mouse_y > accuse_y3) && (mouse_y < accuse_y4)){
 		result = 6;
+	}
+	if ((mouse_x > accuse_x1) && (mouse_x < accuse_x2) && (mouse_y > accuse_y5) && (mouse_y < accuse_y6)){
+		result = 7;
+	}
+	if ((mouse_x > accuse_x3) && (mouse_x < accuse_x4) && (mouse_y > accuse_y5) && (mouse_y < accuse_y6)){
+		result = 8;
+	}
+	if ((mouse_x > accuse_x5) && (mouse_x < accuse_x6) && (mouse_y > accuse_y5) && (mouse_y < accuse_y6)){
+		result = 9;
 	}
 
 	return result;
 }
+
+	
+
 
 // getting suggested: uses different coordinates
 int handle_getting_suggested_mouse(){

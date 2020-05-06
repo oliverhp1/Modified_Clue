@@ -13,6 +13,7 @@
 #include <stdlib.h>  
 #include <vector> 
 #include <sstream>
+#include <sys/time.h>
 
 
 using namespace std;
@@ -25,7 +26,7 @@ extern int handle_suggest_mouse();
 extern int handle_getting_suggested_mouse();
 extern string handle_board_mouse();
 
-
+extern string ping_server(fd_set*, int, int, timeval);
 
 extern void load_all_media(SDL_Renderer*);
 
@@ -52,7 +53,7 @@ extern SDL_Rect suggest_rect1, suggest_rect2, suggest_rect3;
 
 
 // maps to dynamically determine what to use
-extern unordered_map<int, SDL_Texture*> image_map;
+extern unordered_map<int, SDL_Texture*> card_image_map;
 
 extern unordered_map<int, SDL_Rect> suggest_rect_map;
 extern unordered_map<int, SDL_Rect> accuse_rect_map;

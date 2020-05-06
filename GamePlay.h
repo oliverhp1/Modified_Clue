@@ -59,7 +59,7 @@ class GamePlay {
 
         // maintain case file
         static int case_file[];
-        static string case_file_string;
+        static string case_file_string, wrong_accusation;
         static void populate_case_file(int, int, int);
 
 

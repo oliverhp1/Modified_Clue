@@ -274,7 +274,6 @@ string invalid_input = "Invalid input.";
 
 string force_move = "Only one choice for navigation.";
 
-string wrong_accusation = "You guessed incorrectly; deactivating...";
 string no_show_individual = "You do not have any of the suggested cards.";
 string nobody_showed = "Nobody showed.";
 string end_turn_str = "Ending.";
@@ -291,6 +290,8 @@ string accuse_str = "accuse";
 string pass_str = "pass";
 string stay_str = "stay";
 string invalid_str = "invalid";
+
+string empty_space = "empty space";
 
 string navigate_stay[] = {navigate_str, stay_str, ""};
 string navigate_accuse[] = {navigate_str, accuse_str, ""};

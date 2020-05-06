@@ -309,6 +309,7 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 	int socket_id = socket_tracker[player_id];
 	int n_clients = server.get_n_clients();
 	int suggested_id;
+	int pause_success;
 	string player_suggestion, weapon_suggestion;
 
 
@@ -324,11 +325,11 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 
 	// at this point, we've gotten valid values for a suggestion
 	// communicate to all other clients
-	string broadcast_suggestion = 
-		card_map[player_id + 1] + " suggests: " 
-		+ player_suggestion + ", " 
-		+ weapon_suggestion + ", " 
-		+ location_suggestion + "\n";
+	string broadcast_suggestion = "Suggests: "
+		+ to_string(player_id) + ";"
+		+ player_suggestion + ";" 
+		+ weapon_suggestion + ";" 
+		+ location_suggestion;
 
 	for (int i = 0; i < n_clients; i++){
 		if (i != player_id){
@@ -336,8 +337,10 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 		}
 	}
 
-	// also output on the server
+	// also output on the server, and pause to clear buffer
 	cout << broadcast_suggestion;
+	if (usleep(60000) == -1) cout << "failed to pause/clear buffer";
+
 
 
 	// now move the suggested player to relevant location
@@ -357,20 +360,6 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 
 		// string broadcast_move = player_suggestion
 		// 	+ " is being moved to the " + location_suggestion + "\n";
-			
-
-		// // notify player being moved
-		// send(socket_tracker[suggested_id], move_message.c_str(), move_message.size(), 0);
-
-		// // notify everyone else
-		// for (int i = 0; i < n_clients; i++){
-		// 	if (i != (suggested_id)){
-		// 		send(socket_tracker[i], broadcast_move.c_str(), broadcast_move.size(), 0);
-		// 	}
-		// }
-
-		// also notify server
-		// cout << broadcast_move;
 	}
 
 
@@ -424,55 +413,25 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 			continue;
 		}
 
-		// this isn't very clean but equivalent ','.join code is even messier
-		// for applications with more cards we'd use something more robust
-		if (n_overlap == 3){
-			show_card_str = "Show:" + overlap_cards[0] + ";"
-				+ overlap_cards[1] + ";" + overlap_cards[2] + "";
+		// build message to send to client: request a card to show
+		show_card_str = "Show:";
 
-			show_card = get_contained_input(
-				temp_socket, server, show_card_str, overlap_cards
-			);
-			
+		for (int i = 0; i < n_overlap; i++){
+			show_card_str += overlap_cards[i];
+			if (i != n_overlap - 1) show_card_str += ";";
 		}
-		else if (n_overlap == 2){
-			show_card_str = "Show:" + overlap_cards[0]
-				+ ";" + overlap_cards[1] + "";
-
-			show_card = get_contained_input(
-				temp_socket, server, show_card_str, overlap_cards
-			);
-
-			cout << "got contained input " << show_card << endl;
-			
-		}
-		else if (n_overlap == 1){
-			// don't force show, since that conveys information
-			show_card_str = "Show:" + overlap_cards[0] + ";"
-				+ overlap_cards[1] + ";" + overlap_cards[2] + "";
-
-			show_card = get_contained_input(
-				temp_socket, server, show_card_str, overlap_cards
-			);
-
-			// show_card = overlap_cards[0];
-
-			// force_show_card = "You are forced to show card: " 
-			// 	+ show_card + "\r\n";
-			
-			// send(temp_socket, force_show_card.c_str(), 
-			// 	 force_show_card.size(), 0);
-		}
-		else {
-			cerr << "error: more than 3 cards matching on suggest!" << endl;
-		}
+		show_card = get_contained_input(
+			temp_socket, server, show_card_str, overlap_cards
+		);
+		
 
 
 		// we've gotten the card to show, now actually show, and broadcast
 		show_card_broadcast = "Show broadcast:" + card_map[temp_id + 1] 
 			+ ";" + card_map[player_id + 1];
 
-		show_card_str = "Look:" + card_map[temp_id + 1] 
+		// tell suggesting player: player_id and what card they showed
+		show_card_str = "Look:" + to_string(temp_id + 1)
 			+ ";" + show_card;
 
 		for (int j = 0; j < n_clients; j++){
@@ -537,11 +496,11 @@ void GamePlay::accuse(int player_id, int* socket_tracker, Server server, Player*
 	
 	// at this point, we've gotten valid values for the accusation
 	// communicate to all other clients
-	string accuse_broadcast = 
-		card_map[player_id + 1] + " accuses: " 
-		+ accused_player + ", " 
-		+ accused_weapon + ", "
-		+ accused_location + "\n";
+	string accuse_broadcast = "Accusation:"
+		+ card_map[player_id + 1] + ";" 
+		+ accused_player + ";" 
+		+ accused_weapon + ";"
+		+ accused_location;
 
 
 	for (int i = 0; i < n_clients; i++){
@@ -558,15 +517,15 @@ void GamePlay::accuse(int player_id, int* socket_tracker, Server server, Player*
 		|| (reverse_card_map[accused_weapon] != case_file[1]) 
 		|| (reverse_card_map[accused_location] != case_file[2])){
 
-		// if any are wrong, they still get to see the case file
-		send(socket_id, case_file_string.c_str(), case_file_string.size(), 0);
-
-		// then, deactivate player and notify everyone
+		// if wrong, accusing player still gets to see the case file
+		cout << "WRONG ACCUSATION" << endl;
 		send(socket_id, wrong_accusation.c_str(), wrong_accusation.size(), 0);
 		player->deactivate();
 
+
+		// then notify everyone else
 		string deactivated = 
-			card_map[player_id + 1] + " incorrect; deactivated.\n";
+			"Deactivated:" + to_string(player_id);
 
 		for (int i = 0; i < n_clients; i++){
 			if (i != player_id){
@@ -881,6 +840,7 @@ bool GamePlay::in_room(Player* player){
 // maintain case file
 int GamePlay::case_file[3];
 string GamePlay::case_file_string;
+string GamePlay::wrong_accusation;
 
 void GamePlay::populate_case_file(int card1, int card2, int card3){
 	case_file[0] = card1;
@@ -891,10 +851,15 @@ void GamePlay::populate_case_file(int card1, int card2, int card3){
 	int n = sizeof(case_file) / sizeof(case_file[0]);
     sort(case_file, case_file + n);
 
-    case_file_string = "Case file: " 
-    	+ card_map[case_file[0]] + ", "
-    	+ card_map[case_file[1]] + ", " 
-    	+ card_map[case_file[2]] + "\n";
+    case_file_string = "Case file:" 
+    	+ card_map[case_file[0]] + ";"
+    	+ card_map[case_file[1]] + ";" 
+    	+ card_map[case_file[2]];
+
+    wrong_accusation = "Wrong accusation:"
+		+ card_map[case_file[0]] + ";"
+    	+ card_map[case_file[1]] + ";" 
+    	+ card_map[case_file[2]];
 }
 
 

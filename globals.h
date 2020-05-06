@@ -54,7 +54,7 @@ extern string yes_no[];
 
 // helper strings for communication
 extern string request_location, request_player, request_weapon;
-extern string accuse_location, wrong_accusation;
+extern string accuse_location;
 
 extern string navigate_stay_str, suggest_accuse_str, accuse_pass_str;
 extern string start_str, navigate_accuse_str, force_stay_str, force_move;
@@ -69,7 +69,7 @@ extern string navigate_stay[], suggest_accuse[], accuse_pass[], navigate_accuse[
 extern string navigate_str, suggest_str, accuse_str, pass_str, stay_str, invalid_str;
 extern string scarlet, plum, peacock, green, white, mustard;
 extern string rope, leadpipe, knife, wrench, candle, revolver;
-extern string study, hall, lounge, library, billiard, dining, conservatory, ballroom, kitchen;
+extern string study, hall, lounge, library, billiard, dining, conservatory, ballroom, kitchen, empty_space;
 
 extern bool is_semicolon(char c);
 
