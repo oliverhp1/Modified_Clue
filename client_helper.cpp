@@ -8,7 +8,8 @@ using namespace std;
 const int SCREEN_WIDTH = 720;
 const int SCREEN_HEIGHT = 720;
 
-// rectangles for each card in each situation
+
+// coordinates for each card when getting suggested
 const int suggest_y0 = SCREEN_HEIGHT / 3;
 const int suggest_yf = 2 * SCREEN_HEIGHT / 3;
 
@@ -21,8 +22,7 @@ const int suggest2_xf = 17 * SCREEN_WIDTH / 28;
 const int suggest3_x0 = 19 * SCREEN_WIDTH / 28;
 const int suggest3_xf = 25 * SCREEN_WIDTH / 28;
 
-
-
+// coordinates for each card in suggest/accuse
 const int accuse_y1 = 5 * SCREEN_HEIGHT / 30;
 const int accuse_y2 = 11 * SCREEN_HEIGHT / 30;
 const int accuse_y3 = 13 * SCREEN_HEIGHT / 30;
@@ -38,10 +38,36 @@ const int accuse_x5 = 15 * SCREEN_HEIGHT / 20;
 const int accuse_x6 = 18 * SCREEN_HEIGHT / 20;
 
 
+// coordinates for each board position
+// the board is generally symmetric so a lot of quantities can be derived
+const int board_start1 = 142;
+const int board_start2 = 316;
+const int board_start3 = 490;
+
+const int room_width = 87;	// rooms are square
+const int player_width = room_width / 5;	// players are too
+
+const int hallway_width = 30;	// hallways are not
+const int hallway_length = room_width;	
 
 
+const int board_end1 = board_start1 + room_width;
+const int board_end2 = board_start2 + room_width;
+const int board_end3 = board_start3 + room_width;
+
+const int hall_start1 = board_start1 + hallway_width;
+const int hall_start2 = board_start2 + hallway_width;
+const int hall_start3 = board_start3 + hallway_width;
+
+const int hall_end1 = hall_start1 + hallway_width;
+const int hall_end2 = hall_start2 + hallway_width;
+const int hall_end3 = hall_start3 + hallway_width;
+
+
+
+
+// common rendering positions
 SDL_Rect background_rect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
-
 
 SDL_Rect suggest_rect1 = {suggest1_x0, suggest_y0, suggest1_xf - suggest1_x0, suggest_yf - suggest_y0};
 SDL_Rect suggest_rect2 = {suggest2_x0, suggest_y0, suggest2_xf - suggest2_x0, suggest_yf - suggest_y0};
@@ -59,88 +85,27 @@ SDL_Rect accuse_rect9 = {accuse_x5, accuse_y5, accuse_x6 - accuse_x5, accuse_y6 
 
 
 
+// store positions in maps for easy access
 unordered_map<int, SDL_Rect> suggest_rect_map;	// for getting suggested
 unordered_map<int, SDL_Rect> accuse_rect_map;	// for suggesting and accusing
+unordered_map< int, vector<int> > player_render_map;	// for rendering players
 
 
-
+// textures for rendering
 SDL_Texture* board = NULL;
 SDL_Texture* suggest_background = NULL;
 
-
 // all cards' textures stored in here
 unordered_map<int, SDL_Texture*> card_image_map;
+unordered_map<int, SDL_Texture*> player_icon_map;
+
+// track all player locations
+unordered_map<int, int> player_locations;
 
 
 
 
-// methods for gui handling
 
-SDL_Texture* load_image(string path, SDL_Renderer* renderer){
-	// free();
-	SDL_Texture* tmp_texture = NULL;
-	SDL_Surface* load_surface = IMG_Load(path.c_str());
-
-	if (load_surface == NULL){
-		printf("load %s error: %s\n", path.c_str(), IMG_GetError());
-	}
-	else{
-		tmp_texture = SDL_CreateTextureFromSurface(renderer, load_surface);
-		SDL_FreeSurface(load_surface);
-	}
-
-	if (tmp_texture == NULL){
-		cerr << "Error: unable to load texture" << endl;
-	}
-
-	// sTexture = tmp_texture;
-	return tmp_texture;
-
-}
-
-
-// this will populate all the textures defined in client_helper
-void load_all_media(SDL_Renderer* renderer){
-	board = NULL;
-	suggest_background = NULL;
-
-    board = load_image("images/board.png", renderer);
-	if (board == NULL){
-		cerr << "Couldn't load board... exiting\n" << endl;
-		exit(1);
-	}
-
-	// LOAD ALL OTHER IMAGES HERE 
-	suggest_background = load_image("images/suggest.png", renderer);
-	if (suggest_background == NULL){
-		cerr << "Couldn't load suggest... exiting\n" << endl;
-		exit(1);
-	}
-
-
-	// load all cards into map
-	for (int i = 1; i <= 21; i++){
-		SDL_Texture* temp_texture = NULL;
-		temp_texture = load_image("images/" + to_string(i) + ".png", renderer);
-
-		card_image_map[i] = temp_texture;
-	}
-	
-
-	suggest_rect_map[1] = suggest_rect1;
-	suggest_rect_map[2] = suggest_rect2;
-	suggest_rect_map[3] = suggest_rect3;
-
-	accuse_rect_map[1] = accuse_rect1;
-	accuse_rect_map[2] = accuse_rect2;
-	accuse_rect_map[3] = accuse_rect3;
-	accuse_rect_map[4] = accuse_rect4;
-	accuse_rect_map[5] = accuse_rect5;
-	accuse_rect_map[6] = accuse_rect6;
-	accuse_rect_map[7] = accuse_rect7;
-	accuse_rect_map[8] = accuse_rect8;
-	accuse_rect_map[9] = accuse_rect9;
-}
 
 
 // check socket for messages from server
@@ -188,6 +153,220 @@ string ping_server(fd_set* server_set, int max_connection, int client_socket, ti
 }
 
 
+
+
+
+
+// THE REMAINDER OF METHODS ARE FOR GUI HANDLING
+
+// load a single image from file to texture
+SDL_Texture* load_image(string path, SDL_Renderer* renderer){
+	// free();
+	SDL_Texture* tmp_texture = NULL;
+	SDL_Surface* load_surface = IMG_Load(path.c_str());
+
+	if (load_surface == NULL){
+		printf("load %s error: %s\n", path.c_str(), IMG_GetError());
+	}
+	else{
+		tmp_texture = SDL_CreateTextureFromSurface(renderer, load_surface);
+		SDL_FreeSurface(load_surface);
+	}
+
+	if (tmp_texture == NULL){
+		cerr << "Error: unable to load texture" << endl;
+	}
+
+	// sTexture = tmp_texture;
+	return tmp_texture;
+
+}
+
+
+// this will populate all the textures we want
+// and store them in easily accessible places
+void load_all_media(SDL_Renderer* renderer){
+	board = NULL;
+	suggest_background = NULL;
+
+    board = load_image("images/board.png", renderer);
+	if (board == NULL){
+		cerr << "Couldn't load board... exiting\n" << endl;
+		exit(1);
+	}
+
+	// LOAD ALL OTHER IMAGES HERE 
+	suggest_background = load_image("images/suggest.png", renderer);
+	if (suggest_background == NULL){
+		cerr << "Couldn't load suggest... exiting\n" << endl;
+		exit(1);
+	}
+
+
+	// load all cards into map
+	for (int i = 1; i <= 21; i++){
+		SDL_Texture* temp_texture = NULL;
+		temp_texture = load_image("images/" + to_string(i) + ".png", renderer);
+
+		card_image_map[i] = temp_texture;
+	}
+
+	// load all icons into map
+	for (int i = 1; i <= 6; i++){
+		SDL_Texture* temp_texture = NULL;
+		temp_texture = load_image("images/" + to_string(i) + "_icon.png", renderer);
+
+		player_icon_map[i] = temp_texture;
+	}
+	
+	// where to render cards when getting suggested
+	suggest_rect_map[1] = suggest_rect1;
+	suggest_rect_map[2] = suggest_rect2;
+	suggest_rect_map[3] = suggest_rect3;
+
+	// where to render cards when making suggestion/accusation
+	accuse_rect_map[1] = accuse_rect1;
+	accuse_rect_map[2] = accuse_rect2;
+	accuse_rect_map[3] = accuse_rect3;
+	accuse_rect_map[4] = accuse_rect4;
+	accuse_rect_map[5] = accuse_rect5;
+	accuse_rect_map[6] = accuse_rect6;
+	accuse_rect_map[7] = accuse_rect7;
+	accuse_rect_map[8] = accuse_rect8;
+	accuse_rect_map[9] = accuse_rect9;
+}
+
+
+
+
+
+
+// this will render all players
+// given a map of locations
+// assumption: only one player per hallway
+// 	and up to 6 in a room
+void render_all_players(unordered_map<int, int> player_locations,
+		SDL_Renderer* renderer){
+	// player 0: start at (1/10, 1/10)
+	// player 1: start at (4/10, 1/10)
+	// player 2: start at (7/10, 1/10)
+
+	// player 4: start at (1/10, 4/10)
+	// player 5: start at (4/10, 4/10)
+	// player 6: start at (7/10, 4/10)
+	int tmp_x, tmp_y, tmp_location;
+
+	
+
+	for (int id = 0; id < 6; id++){
+		tmp_location = player_locations[id];
+
+		tmp_x = player_render_map[tmp_location][0];
+		tmp_y = player_render_map[tmp_location][1];
+
+		if (in_room(tmp_location)){
+			// players 0-2 are in the top row 
+			tmp_x += (3 * (id % 3) + 1) * room_width / 10;
+			tmp_y += room_width / 10;
+
+			// players 3-5 are in the bottom row
+			if (id >= 3){
+				tmp_y += 3 * room_width / 10;
+			}
+		}
+
+		SDL_Rect temp_rect = {tmp_x, tmp_y, player_width, player_width};
+
+		SDL_RenderCopy(renderer, player_icon_map[id + 1], NULL, &temp_rect);
+	}
+
+	// ** these are all relative to the top left corner of the room
+	// for hallways, stick directly in the middle
+}
+
+
+
+
+
+
+// helper map for rendering players
+// for hallways, (x, y) for top left corner of player render
+	// we want to center the players
+// for rooms, (x, y) for top left of the room
+	// we want to render the players offset so they don't overlap
+void fill_location_map(){
+	// top row
+	player_render_map[1].push_back(board_start1);
+	player_render_map[1].push_back(board_start1);
+	player_render_map[2].push_back(board_end1 + (hallway_length / 2) - (player_width / 2));
+	player_render_map[2].push_back(hall_start1 + (hallway_width / 2) - (player_width / 2));
+	player_render_map[3].push_back(board_start2);
+	player_render_map[3].push_back(board_start1);
+	player_render_map[4].push_back(board_end2 + (hallway_length / 2) - (player_width / 2));
+	player_render_map[4].push_back(hall_start1 + (hallway_width / 2) - (player_width / 2));
+	player_render_map[5].push_back(board_start3);
+	player_render_map[5].push_back(board_start1);
+
+	// top vertical halls
+	player_render_map[6].push_back(hall_start1 + (hallway_width / 2) - (player_width / 2));
+	player_render_map[6].push_back(board_end1 + (hallway_length / 2) - (player_width / 2));
+	player_render_map[7].push_back(hall_start2 + (hallway_width / 2) - (player_width / 2));
+	player_render_map[7].push_back(board_end1 + (hallway_length / 2) - (player_width / 2));
+	player_render_map[8].push_back(hall_start3 + (hallway_width / 2) - (player_width / 2));
+	player_render_map[8].push_back(board_end1 + (hallway_length / 2) - (player_width / 2));
+
+	// middle row
+	player_render_map[9].push_back(board_start1);
+	player_render_map[9].push_back(board_start2);
+	player_render_map[10].push_back(board_end1 + (hallway_length / 2) - (player_width / 2));
+	player_render_map[10].push_back(hall_start2 + (hallway_width / 2) - (player_width / 2));
+	player_render_map[11].push_back(board_start2);
+	player_render_map[11].push_back(board_start2);
+	player_render_map[12].push_back(board_end2 + (hallway_length / 2) - (player_width / 2));
+	player_render_map[12].push_back(hall_start2 + (hallway_width / 2) - (player_width / 2));
+	player_render_map[13].push_back(board_start3);
+	player_render_map[13].push_back(board_start2);
+
+	// bottom vertical halls
+	player_render_map[14].push_back(hall_start1 + (hallway_width / 2) - (player_width / 2));
+	player_render_map[14].push_back(board_end2 + (hallway_length / 2) - (player_width / 2));
+	player_render_map[15].push_back(hall_start2 + (hallway_width / 2) - (player_width / 2));
+	player_render_map[15].push_back(board_end2 + (hallway_length / 2) - (player_width / 2));
+	player_render_map[16].push_back(hall_start3 + (hallway_width / 2) - (player_width / 2));
+	player_render_map[16].push_back(board_end2 + (hallway_length / 2) - (player_width / 2));
+
+	// last row
+	player_render_map[17].push_back(board_start1);
+	player_render_map[17].push_back(board_start3);
+	player_render_map[18].push_back(board_end1 + (hallway_length / 2) - (player_width / 2));
+	player_render_map[18].push_back(hall_start3 + (hallway_width / 2) - (player_width / 2));
+	player_render_map[19].push_back(board_start2);
+	player_render_map[19].push_back(board_start3);
+	player_render_map[20].push_back(board_end2 + (hallway_length / 2) - (player_width / 2));
+	player_render_map[20].push_back(hall_start3 + (hallway_width / 2) - (player_width / 2));
+	player_render_map[21].push_back(board_start3);
+	player_render_map[21].push_back(board_start3);
+
+
+	// starting blocks
+	player_render_map[-1].push_back(board_end2 + (hallway_length / 2) - (player_width / 2));
+	player_render_map[-1].push_back(board_start1 - hallway_width);
+	player_render_map[-2].push_back(board_start1 - hallway_width);
+	player_render_map[-2].push_back(board_end1 + (hallway_length / 2) - (player_width / 2));
+	player_render_map[-3].push_back(board_start1 - hallway_width);
+	player_render_map[-3].push_back(board_end2 + (hallway_length / 2) - (player_width / 2));
+	player_render_map[-4].push_back(board_end1 + (hallway_length / 2) - (player_width / 2));
+	player_render_map[-4].push_back(board_end3 + hallway_width);
+	player_render_map[-5].push_back(board_end2 + (hallway_length / 2) - (player_width / 2));
+	player_render_map[-5].push_back(board_end3 + hallway_width);
+	player_render_map[-6].push_back(board_end3 + hallway_width);
+	player_render_map[-6].push_back(board_end1 + (hallway_length / 2) - (player_width / 2));
+}
+
+
+
+
+
 /*
  * this method returns an int depending on where on the board the mouse is
  * it is used in tandem with a mouse click event
@@ -195,87 +374,132 @@ string ping_server(fd_set* server_set, int max_connection, int client_socket, ti
  * return: string corresponding to board action
  *	using a magic number or enum works as well, but this is easier
  */
-string handle_board_mouse(){
+int handle_board_mouse(){
 	// can use SCREEN_WIDTH and SCREEN_HEIGHT if needed
 	int mouse_x = 0;
 	int mouse_y = 0;		// mouse coordinates
 	
-	string result = empty_space;	// return this if player clicked on nothing
+	int result = 36;	// return this if player clicked on nothing
 
 	SDL_GetMouseState(&mouse_x, &mouse_y);
 
 	// cout << "x, y = " << mouse_x << ", " << mouse_y << endl;	// for debugging purposes
+
 	// get actions
 	if ((mouse_x > 26) && (mouse_x < 157) && (mouse_y > 14) && (mouse_y < 48)){
-		result = navigate_str;
+		result = 31;
 	}
 	else if ((mouse_x > 26) && (mouse_x < 157) && (mouse_y > 58) && (mouse_y < 91)){
-		result = suggest_str;
+		result = 32;
 	}
 	else if ((mouse_x > 573) && (mouse_x < 705) && (mouse_y > 15) && (mouse_y < 48)){
-		result = accuse_str;
+		result = 33;
 	}
 	else if ((mouse_x > 573) && (mouse_x < 705) && (mouse_y > 58) && (mouse_y < 91)){
-		result = pass_str;
+		result = 34;
 	}
 	else if ((mouse_x > 157) && (mouse_x < 287) && (mouse_y > 14) && (mouse_y < 48)){
-		result = stay_str;
+		result = 35;
 	}
 
-	else if ((mouse_x > 142) && (mouse_x < 229) && (mouse_y > 123) && (mouse_y < 217)){
-		result = study;
+	
+	// get rooms
+	else if ((mouse_x > board_start1) && (mouse_x < board_end1) 
+			&& (mouse_y > board_start1) && (mouse_y < board_end1)){
+		result = 1;
 	}
-	else if ((mouse_x > 316) && (mouse_x < 404) && (mouse_y > 123) && (mouse_y < 217)){
-		result = hall;
+	else if ((mouse_x > board_start2) && (mouse_x < board_end2)
+			&& (mouse_y > board_start1) && (mouse_y < board_end1)){
+		result = 3;
 	}
-	else if ((mouse_x > 492) && (mouse_x < 577) && (mouse_y > 123) && (mouse_y < 217)){
-		result = lounge;
+	else if ((mouse_x > board_start3) && (mouse_x < board_end3) 
+			&& (mouse_y > board_start1) && (mouse_y < board_end1)){
+		result = 5;
 	}
-	else if ((mouse_x > 142) && (mouse_x < 229) && (mouse_y > 315) && (mouse_y < 405)){
-		result = library;
+	else if ((mouse_x > board_start1) && (mouse_x < board_end1) 
+			&& (mouse_y > board_start2) && (mouse_y < board_end2)){
+		result = 9;
 	}
-	else if ((mouse_x > 142) && (mouse_x < 229) && (mouse_y > 123) && (mouse_y < 217)){
-		// TOP RIGHT
-		result = "4";
+	else if ((mouse_x > board_start2) && (mouse_x < board_end2)
+			&& (mouse_y > board_start2) && (mouse_y < board_end2)){
+		result = 11;
 	}
-	else if ((mouse_x > 142) && (mouse_x < 229) && (mouse_y > 123) && (mouse_y < 217)){
-		// TOP RIGHT
-		result = "4";
+	else if ((mouse_x > board_start3) && (mouse_x < board_end3) 
+			&& (mouse_y > board_start2) && (mouse_y < board_end2)){
+		result = 13;
 	}
-	else if ((mouse_x > 142) && (mouse_x < 229) && (mouse_y > 123) && (mouse_y < 217)){
-		// TOP RIGHT
-		result = "4";
+	else if ((mouse_x > board_start1) && (mouse_x < board_end1)
+			&& (mouse_y > board_start3) && (mouse_y < board_end3)){
+		result = 17;
 	}
-	else if ((mouse_x > 142) && (mouse_x < 229) && (mouse_y > 123) && (mouse_y < 217)){
-		// TOP RIGHT
-		result = "4";
+	else if ((mouse_x > board_start2) && (mouse_x < board_end2)
+			&& (mouse_y > board_start3) && (mouse_y < board_end3)){
+		result = 19;
 	}
-	else if ((mouse_x > 142) && (mouse_x < 229) && (mouse_y > 123) && (mouse_y < 217)){
-		// TOP RIGHT
-		result = "4";
+	else if ((mouse_x > board_start3) && (mouse_x < board_end3) 
+			&& (mouse_y > board_start3) && (mouse_y < board_end3)){
+		result = 21;
+	}
+
+	// now for hallways. 
+	// handle the 6 horizontal ones first
+	else if ((mouse_x > board_end1) && (mouse_x < board_start2) 
+			&& (mouse_y > hall_start1) && (mouse_y < hall_end1)){
+		result = 2;
+	}
+	else if ((mouse_x > board_end2) && (mouse_x < board_start3) 
+			&& (mouse_y > hall_start1) && (mouse_y < hall_end1)){
+		result = 4;
+	}
+
+	else if ((mouse_x > board_end1) && (mouse_x < board_start2) 
+			&& (mouse_y > hall_start2) && (mouse_y < hall_end2)){
+		result = 10;
+	}
+	else if ((mouse_x > board_end2) && (mouse_x < board_start3) 
+			&& (mouse_y > hall_start2) && (mouse_y < hall_end2)){
+		result = 12;
+	}
+
+	// PAIR
+	else if ((mouse_x > board_end1) && (mouse_x < board_start2) 
+			&& (mouse_y > hall_start3) && (mouse_y < hall_end3)){
+		result = 18;
+	}
+	else if ((mouse_x > board_end2) && (mouse_x < board_start3) 
+			&& (mouse_y > hall_start3) && (mouse_y < hall_end3)){
+		result = 20;
+	}
+
+
+	// then vertical ones: it's symmetric so just flip x and y
+	else if ((mouse_y > board_end1) && (mouse_y < board_start2) 
+			&& (mouse_x > hall_start1) && (mouse_x < hall_end1)){
+		result = 6;
+	}
+	else if ((mouse_y > board_end2) && (mouse_y < board_start3) 
+			&& (mouse_x > hall_start1) && (mouse_x < hall_end1)){
+		result = 14;
+	}
+
+	else if ((mouse_y > board_end1) && (mouse_y < board_start2) 
+			&& (mouse_x > hall_start2) && (mouse_x < hall_end2)){
+		result = 7;
+	}
+	else if ((mouse_y > board_end2) && (mouse_y < board_start3) 
+			&& (mouse_x > hall_start2) && (mouse_x < hall_end2)){
+		result = 15;
+	}
+
+	else if ((mouse_y > board_end1) && (mouse_y < board_start2) 
+			&& (mouse_x > hall_start3) && (mouse_x < hall_end3)){
+		result = 8;
+	}
+	else if ((mouse_y > board_end2) && (mouse_y < board_start3) 
+			&& (mouse_x > hall_start3) && (mouse_x < hall_end3)){
+		result = 16;
 	}
 	
-
-	// can use these for ease if we're custom rendering stuff
-	// else if ( (mouse_x > TextTexture_R[Main_Instruct].x) && (mouse_x < TextTexture_R[Main_Instruct].x + TextTexture_R[Main_Instruct].w) && (mouse_y > TextTexture_R[Main_Instruct].y) && (mouse_y < TextTexture_R[Main_Instruct].y + TextTexture_R[Main_Instruct].h)){
-	// 	overInstruct = true;
-	// 	result = 2;
-	// }
-	// else if ( (mouse_x > TextTexture_R[Main_Quit].x) && (mouse_x < TextTexture_R[Main_Quit].x + TextTexture_R[Main_Quit].w) && (mouse_y > TextTexture_R[Main_Quit].y) && (mouse_y < TextTexture_R[Main_Quit].y + TextTexture_R[Main_Quit].h)){
-	// 	overQuit = true;
-	// 	result = 3;
-	// }
-
-	// can use these to render highlight sections over whatever portion the mouse is over
-	// ideally only do that if it's a valid move. but that's not very straightforward
-	// SDL_RenderCopyEx(gRenderer, TextTextures[Main_Asteroids], NULL, &TextTexture_R[Main_Asteroids], 0, NULL, SDL_FLIP_NONE);
-
-	// if (!overPlay){
-	// 	SDL_RenderCopyEx(gRenderer, TextTextures[Main_Play], NULL, &TextTexture_R[Main_Play], 0, NULL, SDL_FLIP_NONE);
-	// }
-	// else{
-	// 	SDL_RenderCopyEx(gRenderer, TextTextures[Main_Play_H], NULL, &TextTexture_R[Main_Play_H], 0, NULL, SDL_FLIP_NONE);
-	// }
 
 
 	// this will make it very quick to figure out what pixels to click 
@@ -286,14 +510,10 @@ string handle_board_mouse(){
 }
 
 
-// this one handles the suggestion screen
+
+// this one handles the suggestion and accuse screens
 // to avoid duplicate work, just return an int
 // and use the same positions for players and weapons
-
-
-// TODO: CAN USE THIS FOR ACCUSE TOO, just handle the int where this method is called
-// TODO: STICK ALL THESE COORDINATES IN VARIABLES??
-// for suggest, yes. for the general board, probably not necessary
 int handle_suggest_mouse(){
 	// can use SCREEN_WIDTH and SCREEN_HEIGHT if needed
 	int mouse_x = 0;
@@ -361,5 +581,16 @@ int handle_getting_suggested_mouse(){
 	}
 	
 	return result;
+}
+
+bool in_room(int location){
+	// find() method doesn't work with needed compiler version
+	for (int i = 0; i < sizeof(all_rooms) / sizeof(all_rooms[0]); i++){
+		if (all_rooms[i] == location){
+			return true;
+		}
+	}
+
+	return false;
 }
 

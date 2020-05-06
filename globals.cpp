@@ -23,6 +23,13 @@ unordered_map< int, vector<int> > valid_move_map;
 unordered_map<int, int> bridge;
 
 
+// used to communicate between client/server
+string navigate_str = "navigate";
+string suggest_str = "suggest";
+string accuse_str = "accuse";
+string pass_str = "pass";
+string stay_str = "stay";
+string empty_space = "empty space";
 
 
 
@@ -151,6 +158,13 @@ void populate_location_map(){
 	location_map[-5] = "Starting Block";
 	location_map[-6] = "Starting Block";
 
+	location_map[31] = navigate_str;
+	location_map[32] = suggest_str;
+	location_map[33] = accuse_str;
+	location_map[34] = pass_str;
+	location_map[35] = stay_str;
+	location_map[36] = empty_space;
+
 	// this is horrible, but unfortunately map iteration only 
 	// works on compilers that don't work with fd_set
 	reverse_location_map["Study"] = 1;
@@ -271,6 +285,7 @@ string check_state = "Check player locations? [y]/[n]: ";
 string turn_end_str = "Turn ended.";
 
 string invalid_input = "Invalid input.";
+string invalid_str = "invalid";
 
 string force_move = "Only one choice for navigation.";
 
@@ -283,15 +298,6 @@ string end_turn_str = "Ending.";
 // determine the size of an array using its pointer
 string yes_no[] = {"y", "n", ""};
 
-
-string navigate_str = "navigate";
-string suggest_str = "suggest";
-string accuse_str = "accuse";
-string pass_str = "pass";
-string stay_str = "stay";
-string invalid_str = "invalid";
-
-string empty_space = "empty space";
 
 string navigate_stay[] = {navigate_str, stay_str, ""};
 string navigate_accuse[] = {navigate_str, accuse_str, ""};

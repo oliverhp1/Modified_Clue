@@ -260,14 +260,6 @@ void GamePlay::navigate(int player_id, vector<string> valid_moves,
 	else if (valid_moves.size() == 1){
 		// only one option; force move
 		final_location = valid_moves[0];
-
-
-		// string force_move = "Only one choice for navigation.\r\n"
-		// 	"Automatically moving you to the " + final_location + "\r\n";
-
-		// for the gui, we just need to know whether move was forced
-		// we don't need to know where it was to
-		send(socket_id, force_move.c_str(), force_move.size(), 0);	// don't need this in the gui
 	}
 	else {
 		// more than one option; let player choose
@@ -282,14 +274,16 @@ void GamePlay::navigate(int player_id, vector<string> valid_moves,
 	
 
 	// and communicate to all other clients
-	move_broadcast = card_map[player_id + 1] 
-		+ " is moving to the " + final_location + "\n";
+	move_broadcast = "Moving:"
+		+ to_string(player_id) + ";"
+		+ to_string(reverse_location_map[final_location]);
 
 	for (int i = 0; i < n_clients; i++){
-		if (i != player_id){
-			send(socket_tracker[i], move_broadcast.c_str(), move_broadcast.size(), 0);
-		}
+		send(socket_tracker[i], move_broadcast.c_str(), move_broadcast.size(), 0);
 	}
+
+	// if (usleep(10000) == -1) cout << "failed to pause/clear buffer";
+
 
 	// also output on the server
 	cout << move_broadcast;
@@ -325,7 +319,7 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 
 	// at this point, we've gotten valid values for a suggestion
 	// communicate to all other clients
-	string broadcast_suggestion = "Suggests: "
+	string broadcast_suggestion = "Suggests:"
 		+ to_string(player_id) + ";"
 		+ player_suggestion + ";" 
 		+ weapon_suggestion + ";" 
@@ -470,6 +464,8 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 
 	// get confirmation
 	finish = get_matching_input(socket_tracker[player_id], server, end_turn_str);
+
+	cout << "server side suggest confirmed finished" << endl;
 
 
 
@@ -682,7 +678,7 @@ bool GamePlay::get_matching_input(int socket_id, Server server,
 		}
 	}
 
-	return true;
+	return success;
 }
 
 
@@ -826,6 +822,7 @@ bool GamePlay::in_room(Player* player){
 
 	return result;
 }
+
 
 
 

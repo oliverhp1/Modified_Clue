@@ -175,6 +175,7 @@ fd_set Server::connect_all(){
 	int temp_socket, incoming_stream;
 	char buffer[stream_size];
 	bool player_start[max_clients];
+	string connection_message;
 
 	for (int i = 0; i < max_clients; i++) player_start[i] = false;
 
@@ -231,6 +232,10 @@ fd_set Server::connect_all(){
 
 			// give client instructions for starting game
 			// now, it's just "wait until everyone is connected"
+			connection_message = "Connection confirmed. You are player " 
+				+ to_string(connection_index)
+				+ "\n\t Type \"start\" when ready.";
+
 			send(
 				new_client, 
 				connection_message.c_str(), 

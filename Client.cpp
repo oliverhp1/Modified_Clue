@@ -20,7 +20,7 @@ using namespace std;
 
 // this is not perfect, but can't think of more straightforward encapsulations
 void client_suggestion(SDL_Renderer* renderer, fd_set* server_set, 
-	int max_connection, int client_socket, timeval quick){
+	int max_connection, int client_socket, int player_id, timeval quick){
 
 
 	SDL_Event e;
@@ -28,7 +28,6 @@ void client_suggestion(SDL_Renderer* renderer, fd_set* server_set,
 	int suggested_player, showing_player, mouse_output, out;
 
 	vector<string> player_and_card;
-
 
 
 	// first get player suggestion
@@ -107,7 +106,9 @@ void client_suggestion(SDL_Renderer* renderer, fd_set* server_set,
 					if (action.compare(request_weapon) == 0){
 						get_player = false;
 						get_weapon = true;
-						suggested_player = mouse_output;
+
+						// move suggested player to current location
+						player_locations[mouse_output - 1] = player_locations[player_id];
 					}
 					else if (action.compare(invalid_input) == 0){
 						// do nothing
@@ -158,8 +159,6 @@ void client_suggestion(SDL_Renderer* renderer, fd_set* server_set,
 			else if (action.compare(nobody_showed) == 0){
 				// TODO: write a notification badge with continue button
 				cout << "nobody had any of the cards" << endl;
-
-				out = write(client_socket, end_turn_str.c_str(), end_turn_str.size() + 2);
 
 				// if we get here, we are done as well; just need to hit confirm to continue
 				get_response = false;
@@ -221,7 +220,12 @@ bool client_accusation(SDL_Renderer* renderer, fd_set* server_set,
 		}
 		else if (get_weapon){
 			for (int i = 7; i <= 12; i++){
-				SDL_RenderCopy(renderer, card_image_map[i], NULL, &accuse_rect_map[i]);	
+				SDL_RenderCopy(renderer, card_image_map[i], NULL, &accuse_rect_map[i - 6]);	
+			}
+		}
+		else if (get_location){
+			for (int i = 13; i <= 21; i++){
+				SDL_RenderCopy(renderer, card_image_map[i], NULL, &accuse_rect_map[i - 12]);
 			}
 		}
 		
@@ -294,7 +298,7 @@ bool client_accusation(SDL_Renderer* renderer, fd_set* server_set,
 					}
 					else {
 						// getting suggestion response from server
-						cout << "should already have case file from server" << endl;
+						cout << "process the case file from server" << endl;
 						get_location = false;
 						handle_response = true;
 					}
@@ -434,11 +438,22 @@ int main(int argc, char *argv[]){
 	int client_socket, client_id, address_length, player_id;
 	struct hostent *server;
 	char buffer[STREAM_SIZE];
+	string tmp;
+
+	// for handling delimited incoming messages from server
+	int tmp_player, tmp_location, tmp_weapon;
+	vector<string> split_message;
+
+	// initialize player locations to starting blocks
+	for (int i = 0; i < 6; i++){
+		player_locations[i] = -1 * (i + 1);
+	}
 
 	// each client needs this themselves
 	populate_location_map();
 	populate_card_map();
 	populate_bridge();
+	fill_location_map();
 
 
 	// get port and host from runtime args
@@ -488,9 +503,13 @@ int main(int argc, char *argv[]){
     	exit(1);
     }
 
+    
     cout << "Message from server:\n\t" << buffer << endl;
 
-    // TODO: set player id here (pass in the message from server)
+
+    // set player_id based on message from server
+    tmp = buffer[37];
+    istringstream(tmp) >> player_id;
     
 
     bool start = false;
@@ -504,18 +523,19 @@ int main(int argc, char *argv[]){
     	fgets(buffer, 255, stdin);	// get client message from console
 
 		// send message to server ("start" will confirm on server-side)
-	    out = write(client_socket, buffer, strlen(buffer));
-	    if (out < 0){
-	        cerr << "Error sending message to server, exiting..." << endl;
-	        exit(1);
-	    }
-
 	    // if started, open up the gui, then listen for your turn
 	    if (strncmp(buffer, "start", 5) == 0){
 	    	start = true;
+	    	out = write(client_socket, buffer, 5);
+		    if (out < 0){
+		        cerr << "Error sending message to server, exiting..." << endl;
+		        exit(1);
+		    }
+	    }
+	    else {
+	    	cout << "\tPlz enter start:" << endl;
 	    }
     }
-
 
 
     // when game starts, initialize all static SDL/GUI functionality
@@ -611,6 +631,7 @@ int main(int argc, char *argv[]){
 		SDL_RenderClear(renderer);
 		
 		SDL_RenderCopy(renderer, board, NULL, &background_rect);
+		render_all_players(player_locations, renderer);
 
 		SDL_RenderPresent(renderer);	// update screen 
 
@@ -647,32 +668,21 @@ int main(int argc, char *argv[]){
 			// iterate until turn has concluded
 			while (!turn_end){
 				// server will tell us what moves are possible
-				// unfortunately we can't just let the server handle everything
-				
-				// since we need to render highlights and whatnot
-					// ALTHOUGH we can handle that later separately
-					// using only the action string??
-
-				// no, we will need to handle stuff in here
-				// e.g. if you navigate, we need to know whether it's automatic or choice
-
-
-				
-
-				// get player move
-			
-				// need to render in the inner loop as well
+				// so we will just attempt to send all actions to the server
+				// and if it returns invalid, we will keep sending outputs
 				SDL_RenderClear(renderer);
 				SDL_RenderCopy(renderer, board, NULL, &background_rect);
+				render_all_players(player_locations, renderer);
 				
 				// also render board highlighting here!
+					// use output of mouse_output. and stick renderpresent at the end of the while loop
 
 				SDL_RenderPresent(renderer);
 
 
 				// now poll for event
 				// get mouse information
-				mouse_output = handle_board_mouse();
+				mouse_output = location_map[handle_board_mouse()];
 
 				// check for mouse click, else do nothing
 				// if player clicked on an action or area, just send it to the server
@@ -686,10 +696,9 @@ int main(int argc, char *argv[]){
 			        }
 			        else if (!turn_end && (e.type == SDL_MOUSEBUTTONDOWN) && (e.button.button == SDL_BUTTON_LEFT)){
 			        	cout << "click: " << mouse_output << endl;
-			        	cout << "current action: " << action << endl;
 
 			        	if (mouse_output.compare(empty_space) == 0){
-			        		cout << "testing: " << mouse_output << endl;
+			        		cout << mouse_output << endl;
 			        	}
 			        	else if (mouse_output.compare(navigate_str) == 0){
 			        		// send to server
@@ -704,17 +713,27 @@ int main(int argc, char *argv[]){
 
 						    // after we write to server, expect a response
 						    // update action according to message from server
+						    // if "moving", it was forced. if "request_location", handle next iteration
 						    action = ping_server(
 								&server_set, max_connection, client_socket, quick
 							);
 
-							if (action.compare(force_move) == 0){
+							if (action.substr(0, 7).compare("Moving:") == 0){
+								// we are moving
+								tmp = action.substr(7);
+								boost::split(
+									split_message, tmp, is_semicolon
+								);
+								istringstream(split_message[1]) >> tmp_location;
+
+								player_locations[player_id] = tmp_location;
+
 								// need to read additional message to clear stream
+								// if (usleep(20000) == -1) cout << "failed to pause/clear buffer";
 								action = ping_server(
 									&server_set, max_connection, client_socket, quick
 								);
 							}
-						    
 			        	}
 			        	else if (mouse_output.compare(suggest_str) == 0){
 			        		out = write(client_socket, mouse_output.c_str(), mouse_output.size() + 2);
@@ -731,7 +750,7 @@ int main(int argc, char *argv[]){
 							if (action.compare(request_player) == 0){
 								// kick off suggestion method here
 								client_suggestion(
-									renderer, &server_set, max_connection, client_socket, quick
+									renderer, &server_set, max_connection, client_socket, player_id, quick
 								);
 
 								// get subsequent action
@@ -781,25 +800,8 @@ int main(int argc, char *argv[]){
 						    
 			        	}
 
-
-
-			        	// TODO: BIN ALL LOCATIONS TOGETHER
-			        	// TODO: BIN ALL LOCATIONS TOGETHER
-			        	// TODO: BIN ALL LOCATIONS TOGETHER
-			        	else if (mouse_output.compare(hall) == 0){
-			        		out = write(client_socket, mouse_output.c_str(), mouse_output.size() + 2);
-						    if (out < 0){
-						        cerr << "Error sending message to server, exiting..." << endl;
-						        exit(1);
-						    }
-
-						    // get response from server
-						    action = ping_server(
-								&server_set, max_connection, client_socket, quick
-							);
-
-			        	}
-			        	else if (mouse_output.compare(study) == 0){
+			        	else {	// BIN ALL LOCATIONS TOGETHER
+			        		// got a location; only move if we get the correct message back from server
 			        		out = write(client_socket, mouse_output.c_str(), mouse_output.size() + 2);
 						    if (out < 0){
 						        cerr << "Error sending message to server, exiting..." << endl;
@@ -811,14 +813,23 @@ int main(int argc, char *argv[]){
 								&server_set, max_connection, client_socket, quick
 							);
 
+						    if (action.substr(0, 7).compare("Moving:") == 0){
+								// we are moving
+								tmp = action.substr(7);
+								boost::split(
+									split_message, tmp, is_semicolon
+								);
+								istringstream(split_message[1]) >> tmp_location;
 
-			        	}
-			        	
-			        	else {
-			        		turn_end = false;
-			        		// cout << "invalid click?" << endl;
+								player_locations[player_id] = tmp_location;
 
-			        		cout << "empty click?" << mouse_output << endl;
+								// need to read additional message to clear stream
+								action = ping_server(
+									&server_set, max_connection, client_socket, quick
+								);
+							}
+
+
 			        	}
 			        }	        
 			    }
@@ -836,8 +847,21 @@ int main(int argc, char *argv[]){
 		// cout << " pre-show logic: "  << action << action.substr(0, 5) << endl;
 		// cout << to_string(action.substr(0, 5).compare("Show:")) << endl;
 
-		
-		if (action.substr(0, 5).compare("Show:") == 0){
+		if (action.substr(0, 9).compare("Suggests:") == 0){
+			// update location for whoever was suggested
+			tmp = action.substr(9);
+			boost::split(split_message, tmp, is_semicolon);
+
+			tmp_player = reverse_card_map[split_message[1]] - 1;	// player_id is 0 indexed
+			tmp_location = reverse_location_map[split_message[3]];
+			player_locations[tmp_player] = tmp_location;
+
+
+
+			// TODO: NOTIFICATION BANNER HERE
+		}
+
+		else if (action.substr(0, 5).compare("Show:") == 0){
     		// being forced to show a card; iterate until we get a valid option
     		done = false;
 
@@ -858,9 +882,18 @@ int main(int argc, char *argv[]){
 
 				if (response.compare(invalid_input) != 0) done = true;
     		}
-			
+		}
+		else if (action.substr(0, 7).compare("Moving:") == 0){
+			// someone else is moving
+			tmp = action.substr(7);
+			boost::split(
+				split_message, tmp, is_semicolon
+			);
+			istringstream(split_message[0]) >> tmp_player;
+			istringstream(split_message[1]) >> tmp_location;
 
-    	}
+			player_locations[tmp_player] = tmp_location;
+		}
     	// other incoming strings we need to handle: (make sure to check string length beforehand)
     	// action.compare(no_show_individual) == 0		// someone tried to suggest you, you didn't have any of the cards
     	// action.substr(0, 9).compare("No cards:") 	// someone tried to suggest someone else; they had none of the cards.
@@ -877,7 +910,7 @@ int main(int argc, char *argv[]){
 
 
 		// looks like we need this to maintain the gui, else it disappears
-		mouse_output = handle_board_mouse();
+		mouse_output = location_map[handle_board_mouse()];
 
 		// SDL_WaitEvent(&e);	this is more efficient, but 
 		// can freeze the board state if player is inactive
@@ -895,7 +928,7 @@ int main(int argc, char *argv[]){
 	        	}
 	        	// probably just handle the 'show hand' toggle here
 	        		// actually to make it easier, only allow it on your turn for now
-	        	
+
 	        	// else if (mouse_output.compare()){
 	        	// 	cout << "TOP LEFT CLICK!" << endl;
 	        	// }

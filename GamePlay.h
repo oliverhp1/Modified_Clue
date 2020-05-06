@@ -65,6 +65,7 @@ class GamePlay {
 
         // for determining whether player is in a room
         static bool in_room(Player*);
+        static bool in_room(int);
 
 
         
