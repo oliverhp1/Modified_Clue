@@ -12,13 +12,10 @@ const int SCREEN_HEIGHT = 720;
 // coordinates for each card when getting suggested
 const int suggest_y0 = SCREEN_HEIGHT / 3;
 const int suggest_yf = 2 * SCREEN_HEIGHT / 3;
-
 const int suggest1_x0 = 3 * SCREEN_WIDTH / 28;
 const int suggest1_xf = 9 * SCREEN_WIDTH / 28;
-
 const int suggest2_x0 = 11 * SCREEN_WIDTH / 28;
 const int suggest2_xf = 17 * SCREEN_WIDTH / 28;
-
 const int suggest3_x0 = 19 * SCREEN_WIDTH / 28;
 const int suggest3_xf = 25 * SCREEN_WIDTH / 28;
 
@@ -29,7 +26,6 @@ const int accuse_y3 = 13 * SCREEN_HEIGHT / 30;
 const int accuse_y4 = 19 * SCREEN_HEIGHT / 30;
 const int accuse_y5 = 21 * SCREEN_HEIGHT / 30;
 const int accuse_y6 = 27 * SCREEN_HEIGHT / 30;
-
 const int accuse_x1 = 2 * SCREEN_HEIGHT / 20;
 const int accuse_x2 = 5 * SCREEN_HEIGHT / 20;
 const int accuse_x3 = 17 * SCREEN_HEIGHT / 40;
@@ -46,10 +42,8 @@ const int board_start3 = 490;
 
 const int room_width = 87;	// rooms are square
 const int player_width = room_width / 5;	// players are too
-
 const int hallway_width = 30;	// hallways are not
 const int hallway_length = room_width;	
-
 
 const int board_end1 = board_start1 + room_width;
 const int board_end2 = board_start2 + room_width;
@@ -68,6 +62,9 @@ const int hall_end3 = hall_start3 + hallway_width;
 
 // common rendering positions
 SDL_Rect background_rect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
+SDL_Rect notification_rect = {
+	SCREEN_WIDTH / 10, 92 * SCREEN_HEIGHT / 100, 8 * SCREEN_WIDTH / 10, 6 * SCREEN_HEIGHT / 100
+};
 
 SDL_Rect suggest_rect1 = {suggest1_x0, suggest_y0, suggest1_xf - suggest1_x0, suggest_yf - suggest_y0};
 SDL_Rect suggest_rect2 = {suggest2_x0, suggest_y0, suggest2_xf - suggest2_x0, suggest_yf - suggest_y0};
@@ -94,6 +91,16 @@ unordered_map< int, vector<int> > player_render_map;	// for rendering players
 // textures for rendering
 SDL_Texture* board = NULL;
 SDL_Texture* suggest_background = NULL;
+SDL_Texture* notify_background = NULL;
+SDL_Texture* hand_background = NULL;
+
+
+TTF_Font* laser_font = NULL;
+TTF_Font* blood_font = NULL;
+
+SDL_Color silver = {192, 192, 192};	// silver
+SDL_Color red = {139, 0, 0};		// dark red
+
 
 // all cards' textures stored in here
 unordered_map<int, SDL_Texture*> card_image_map;
@@ -108,51 +115,35 @@ unordered_map<int, int> player_locations;
 
 
 
-// check socket for messages from server
-// return empty immediately if nothing is written
-// we need this since SDL cannot maintain the images it renders
-// unless we are constantly refreshing the board
-string ping_server(fd_set* server_set, int max_connection, int client_socket, timeval quick){
-	string message = "";
-	char buffer[STREAM_SIZE];
-	int incoming_stream;
+// render hand until player chooses to go back to board
+void render_hand(SDL_Renderer* renderer, vector<int> hand){
+	SDL_Event e;
+	bool done = false;
 
-	// reset fd_set each time
-	FD_ZERO(server_set);
-	FD_SET(client_socket, server_set);
-	
-	// select will get any messages from server without waiting
-	int incoming_action = select(
-		max_connection + 1, server_set, nullptr, nullptr, &quick
-	);
-
-	// cout << to_string(incoming_action) << endl;
-
-	if (FD_ISSET(client_socket, server_set)){
-		incoming_stream = read(client_socket, buffer, STREAM_SIZE);
-
-		if (incoming_stream == 0){
-			// server_socket is no longer connected
-			close(client_socket);
-			FD_CLR(client_socket, server_set);
-			cerr << "server disconnected, exiting." << endl;
-			exit(1);
+	// render relevant cards until exit
+	while (!done){
+		SDL_RenderClear(renderer);
+		SDL_RenderCopy(renderer, hand_background, NULL, &background_rect);
+		for (int i = 0; i < hand.size(); i++){
+			SDL_RenderCopy(renderer, card_image_map[hand[i]], NULL, &accuse_rect_map[i + 1]);	
 		}
-		else {
-			// handle the message
-			// terminate char array for string handling
-			buffer[incoming_stream] = '\0';
-			message = buffer;
+		SDL_RenderPresent(renderer);
 
-			cout << "Message received from server: " << message << endl;
-			
-		}
+		done = return_to_board();
+
+		while (SDL_PollEvent(&e)){
+	        if ((e.type == SDL_MOUSEBUTTONDOWN) && (e.button.button == SDL_BUTTON_LEFT)){
+	        	if (done){
+	        		return;
+	        	}
+	        }
+	    }
+
+	    done = false;
 	}
-
-	return message;
+	cout << "broken logic in render_hand" << endl;
+	return;
 }
-
-
 
 
 
@@ -188,6 +179,9 @@ SDL_Texture* load_image(string path, SDL_Renderer* renderer){
 void load_all_media(SDL_Renderer* renderer){
 	board = NULL;
 	suggest_background = NULL;
+	notify_background = NULL;
+	hand_background = NULL;
+
 
     board = load_image("images/board.png", renderer);
 	if (board == NULL){
@@ -201,6 +195,20 @@ void load_all_media(SDL_Renderer* renderer){
 		cerr << "Couldn't load suggest... exiting\n" << endl;
 		exit(1);
 	}
+
+	// for notifications at bottom of screen
+	notify_background = load_image("images/notify.png", renderer);
+	if (notify_background == NULL){
+		cerr << "Couldn't load notify background... exiting\n" << endl;
+		exit(1);
+	}
+
+	hand_background = load_image("images/hand.png", renderer);
+	if (hand_background == NULL){
+		cerr << "Couldn't load hand image... exiting\n" << endl;
+		exit(1);
+	}
+
 
 
 	// load all cards into map
@@ -218,6 +226,21 @@ void load_all_media(SDL_Renderer* renderer){
 
 		player_icon_map[i] = temp_texture;
 	}
+
+
+	// different texts
+	laser_font = TTF_OpenFont("fonts/laser.ttf", 3 * SCREEN_HEIGHT / 100);
+	if (laser_font == NULL){
+		printf("couldn't load laser font, error: %s\n", TTF_GetError());
+		exit(1);
+	}
+
+	blood_font = TTF_OpenFont("fonts/bloody.ttf", 3 * SCREEN_HEIGHT / 100);
+	if (blood_font == NULL){
+		printf("couldn't load bloody font, error: %s\n", TTF_GetError());
+		exit(1);
+	}
+
 	
 	// where to render cards when getting suggested
 	suggest_rect_map[1] = suggest_rect1;
@@ -256,7 +279,6 @@ void render_all_players(unordered_map<int, int> player_locations,
 	// player 6: start at (7/10, 4/10)
 	int tmp_x, tmp_y, tmp_location;
 
-	
 
 	for (int id = 0; id < 6; id++){
 		tmp_location = player_locations[id];
@@ -386,7 +408,10 @@ int handle_board_mouse(){
 	// cout << "x, y = " << mouse_x << ", " << mouse_y << endl;	// for debugging purposes
 
 	// get actions
-	if ((mouse_x > 26) && (mouse_x < 157) && (mouse_y > 14) && (mouse_y < 48)){
+	if ((mouse_x > 157) && (mouse_x < 287) && (mouse_y > 58) && (mouse_y < 91)){
+		result = 30;
+	}
+	else if ((mouse_x > 26) && (mouse_x < 157) && (mouse_y > 14) && (mouse_y < 48)){
 		result = 31;
 	}
 	else if ((mouse_x > 26) && (mouse_x < 157) && (mouse_y > 58) && (mouse_y < 91)){
@@ -582,6 +607,20 @@ int handle_getting_suggested_mouse(){
 	
 	return result;
 }
+
+bool return_to_board(){
+	int mouse_x = 0;
+	int mouse_y = 0;		// mouse coordinates
+
+	SDL_GetMouseState(&mouse_x, &mouse_y);
+
+	if ((mouse_y > 5 * SCREEN_HEIGHT / 6) && (mouse_x > 2 * SCREEN_WIDTH / 3)){
+		return true;
+	}
+	
+	return false;
+}
+
 
 bool in_room(int location){
 	// find() method doesn't work with needed compiler version

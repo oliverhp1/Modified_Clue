@@ -66,7 +66,7 @@ extern string invalid_input, no_show_individual, nobody_showed;
 extern string navigate_stay[], suggest_accuse[], accuse_pass[], navigate_accuse[];
 
 // this is not necessary but is cleaner than hardcoding
-extern string navigate_str, suggest_str, accuse_str, pass_str, stay_str, invalid_str;
+extern string show_hand_str, navigate_str, suggest_str, accuse_str, pass_str, stay_str, invalid_str;
 extern string scarlet, plum, peacock, green, white, mustard;
 extern string rope, leadpipe, knife, wrench, candle, revolver;
 extern string study, hall, lounge, library, billiard, dining, conservatory, ballroom, kitchen, empty_space;

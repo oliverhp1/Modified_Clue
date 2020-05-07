@@ -770,17 +770,15 @@ void GamePlay::call_valid_move(int player_id, int* socket_tracker,
 
 void GamePlay::show_hand(int socket_id, Player* player){
 	vector<int> hand = player->get_hand();
-	string output = "\tYour cards: ";
+	string output = "Your hand:";
 
 	for (int i = 0; i < hand.size(); i++){
-		output += card_map[hand[i]];
+		output += to_string(hand[i]);
 
 		if (i != hand.size() - 1){
-			output += ", ";
+			output += ";";
 		}
 	}
-	output += "\r\n";
-
 
 	send(socket_id, output.c_str(), output.size(), 0);
 }

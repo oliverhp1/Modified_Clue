@@ -1,6 +1,7 @@
 #include "Client.h"
 #include "globals.h"
 #include "client_helper.h"
+#include "client_gameplay.h"
 
 #include <netdb.h>
 #include <stdio.h> 
@@ -17,432 +18,24 @@ using namespace std;
 
 
 
-
-// this is not perfect, but can't think of more straightforward encapsulations
-void client_suggestion(SDL_Renderer* renderer, fd_set* server_set, 
-	int max_connection, int client_socket, int player_id, timeval quick){
-
-
-	SDL_Event e;
-	string action, response, look_str;
-	int suggested_player, showing_player, mouse_output, out;
-
-	vector<string> player_and_card;
-
-
-	// first get player suggestion
-	bool get_player = true;
-	bool get_weapon = false;
-	bool get_response = false;
-	bool confirming = false;
-
-	// iterate until all suggestion logic has concluded
-	while (get_player || get_weapon || get_response || confirming){
-		// need to render in the inner loop as well
-		SDL_RenderClear(renderer);
-		SDL_RenderCopy(renderer, suggest_background, NULL, &background_rect);
-
-		// render relevant cards
-		if (get_player){
-			for (int i = 1; i <= 6; i++){
-				SDL_RenderCopy(renderer, card_image_map[i], NULL, &accuse_rect_map[i]);	
-			}
-		}
-		else if (get_weapon){
-			for (int i = 7; i <= 12; i++){
-				SDL_RenderCopy(renderer, card_image_map[i], NULL, &accuse_rect_map[i - 6]);	
-			}
-		}
-		
-		// also render board highlighting here!
-		// we'll need the mouse_output info, so if doing that, stick renderpresent below the poll event while loop
-
-		// if (confirming) // render the message overlay with a continue button
-
-		SDL_RenderPresent(renderer);
-
-
-		// now poll for event
-		// get mouse information
-		mouse_output = handle_suggest_mouse();
-
-		
-		if (!get_response && !confirming){
-			// if getting player or weapon, check for mouse click, else do nothing
-		    while (SDL_PollEvent(&e)){
-		        if ((e.type == SDL_MOUSEBUTTONDOWN) && (e.button.button == SDL_BUTTON_LEFT)){
-		        	cout << "click: " << mouse_output << endl;
-
-		        	// get the area that was clicked on
-		        	// send to server all together at the end.
-		        	if (mouse_output == -1){
-		        		// null click; don't send anything to server
-		        		continue;
-		        	}
-		        	else if (get_player){
-		        		response = card_map[mouse_output];
-		        	}
-		        	else if (get_weapon){
-		        		response = card_map[mouse_output + 6];
-		        	}
-		        	else {
-		        		cout << "error: invalid mouse output in client_suggestion" << endl;		        		
-		        	}
-
-
-		        	// after handling click, send suggestion to server
-				    out = write(client_socket, response.c_str(), response.size() + 2);
-				    if (out < 0){
-				        cerr << "Error sending message to server, exiting..." << endl;
-				        exit(1);
-				    }
-
-				    // after we write to server, expect a response
-				    // update action according to message from server
-				    action = ping_server(
-						server_set, max_connection, client_socket, quick
-					);
-
-					if (action.compare(request_weapon) == 0){
-						get_player = false;
-						get_weapon = true;
-
-						// move suggested player to current location
-						player_locations[mouse_output - 1] = player_locations[player_id];
-					}
-					else if (action.compare(invalid_input) == 0){
-						// do nothing
-					}
-					else {
-						// getting suggestion response from server
-						cout << "GETTING SUGGESTION RESULT FROM SERVER" << endl;
-						get_weapon = false;
-						get_response = true;
-					}
-		        	
-		        }	        
-		    }
-		}
-		// now, we are done deciding on suggestion.  need to wait for response from server
-		// that will tell us who showed what card
-		else if (get_response){
-    		// HERE WE GET THE OUTPUT OF OUR SUGGESTION
-			// WE ALREADY KNOW THE PLAYER THAT IS GOING TO MOVE (SINCE WE SUGGESTED THEM)
-			// WE NEED TO GET A SEQUENCE OF NUMBERS INDICATING WHO SHOWED WHAT CARD (or if they did not have any)
-
-			action = ping_server(
-				server_set, max_connection, client_socket, quick
-			);
-
-			if ((action.length() == 9) && (action.substr(0, 9).compare("No cards:") == 0)){
-				// TODO: write a notification badge 
-				cout << "player " << action.substr(10) << "has none of the suggested cards " << endl;
-			}
-			else if ((action.length() > 5) && (action.substr(0, 5).compare("Look:") == 0)){
-				// someone is showing you a card
-				// this is just a notification badge as well! no actual logic required
-				look_str = action.substr(5);
-
-				boost::split(
-					player_and_card, look_str, is_semicolon
-				);
-				istringstream(player_and_card[0]) >> showing_player;
-				cout << "player " << player_and_card[0] << " shows you " << player_and_card[1] << endl;
-
-
-
-				get_response = false;
-				confirming = true;
-				// at this point, a player has responded with their card
-				// we just need the player to hit confirm to continue
-			}
-			else if (action.compare(nobody_showed) == 0){
-				// TODO: write a notification badge with continue button
-				cout << "nobody had any of the cards" << endl;
-
-				// if we get here, we are done as well; just need to hit confirm to continue
-				get_response = false;
-				confirming = true;
-			}
-    	}
-    	else {
-    		// just waiting to confirm
-    		// TODO: this should be a button with a continue button. for now just send end_turn_str to server
-
-    		cout << "confirming suggestion ending." << endl;
-
-    		out = write(client_socket, end_turn_str.c_str(), end_turn_str.size() + 2);
-
-    		confirming = false;
-
-    	}
-	}
-
-	cout << "done." << endl;
-
-
-	return;
-}
-
-
-// some parts similar to suggest but there are significant differences
-// return true if successful, false if deactivated
-bool client_accusation(SDL_Renderer* renderer, fd_set* server_set, 
-	int max_connection, int client_socket, timeval quick){
-
-
-	SDL_Event e;
-	string action, response, case_file_str;
-	int suggested_player, mouse_output, out;
-	bool correct;
-
-	vector<string> case_file;
-
-
-
-	// first get player accusation
-	bool get_player = true;
-	bool get_weapon = false;
-	bool get_location = false;
-	bool handle_response = false;
-	bool confirming = false;
-
-	// iterate until all accusation logic has concluded
-	while (get_player || get_weapon || handle_response || get_location || confirming){
-		SDL_RenderClear(renderer);
-		SDL_RenderCopy(renderer, suggest_background, NULL, &background_rect);
-
-		// render relevant cards
-		if (get_player){
-			for (int i = 1; i <= 6; i++){
-				SDL_RenderCopy(renderer, card_image_map[i], NULL, &accuse_rect_map[i]);	
-			}
-		}
-		else if (get_weapon){
-			for (int i = 7; i <= 12; i++){
-				SDL_RenderCopy(renderer, card_image_map[i], NULL, &accuse_rect_map[i - 6]);	
-			}
-		}
-		else if (get_location){
-			for (int i = 13; i <= 21; i++){
-				SDL_RenderCopy(renderer, card_image_map[i], NULL, &accuse_rect_map[i - 12]);
-			}
-		}
-		
-		// also render board highlighting here! (after getting mouse_output)
-		// we'll need the mouse_output info, so if doing that, stick renderpresent below the poll event while loop
-
-		// if (confirming) // render the message overlay with a continue button
-
-		SDL_RenderPresent(renderer);
-
-
-		// now poll for event
-		// get mouse information
-		mouse_output = handle_suggest_mouse();
-
-		
-		if (!handle_response && !confirming){
-			// if getting player or weapon, check for mouse click, else do nothing
-		    while (SDL_PollEvent(&e)){
-		        if ((e.type == SDL_MOUSEBUTTONDOWN) && (e.button.button == SDL_BUTTON_LEFT)){
-		        	cout << "click: " << mouse_output << endl;
-
-		        	// get the area that was clicked on
-		        	// for players and weapons, only allow up to 6
-		        	// send to server all together at the end.
-		        	if (mouse_output == -1){
-		        		// null click; don't send anything to server
-		        		continue;
-		        	}
-		        	else if (get_player){
-		        		if (mouse_output > 6) continue; 	// invalid player
-		        		response = card_map[mouse_output];
-		        	}
-		        	else if (get_weapon){
-		        		if (mouse_output > 6) continue; 	// invalid weapon
-		        		response = card_map[mouse_output + 6];
-		        	}
-		        	else if (get_location){
-		        		response = card_map[mouse_output + 12];
-		        	}
-		        	else {
-		        		// getting response
-		        		cout << "error: incorrect logic in client_accusation" << endl;
-		        	}
-
-
-		        	// send whatever we decided to server
-				    out = write(client_socket, response.c_str(), response.size() + 2);
-				    if (out < 0){
-				        cerr << "Error sending message to server, exiting..." << endl;
-				        exit(1);
-				    }
-
-				    // after we write to server, expect a response
-				    // update action according to message from server
-				    action = ping_server(
-						server_set, max_connection, client_socket, quick
-					);
-
-					if (action.compare(request_weapon) == 0){
-						get_player = false;
-						get_weapon = true;
-					}
-					else if (action.compare(accuse_location) == 0){
-						get_weapon = false;
-						get_location = true;
-					}
-					else if (action.compare(invalid_input) == 0){
-						// do nothing
-					}
-					else {
-						// getting suggestion response from server
-						cout << "process the case file from server" << endl;
-						get_location = false;
-						handle_response = true;
-					}
-		        	
-		        }	        
-		    }
-		}
-		// here, we are done deciding on accusation.  need to get result from server
-		else if (handle_response){
-			// action = ping_server(
-			// 	server_set, max_connection, client_socket, quick
-			// );
-
-			if ((action.length() >= 17) && (action.substr(0, 17).compare("Wrong accusation:") == 0)){
-				// TODO: write a notification badge 
-				// should we change the background too?
-					// sure, this should be relatively easy
-				// we should do something that persists for the rest of the game state
-				case_file_str = action.substr(17);
-				boost::split(
-					case_file, case_file_str, is_semicolon
-				);
-
-				cout << "Wrong accusation: " << case_file[0] << ", "  
-					 << case_file[1] << ", " << case_file[2] << endl;
-
-				handle_response = false;
-				confirming = true;
-
-				correct = false;
-			}
-			else if ((action.length() >= 10) && (action.substr(0, 10).compare("Case file:") == 0)){
-				// successful accusation
-				case_file_str = action.substr(10);
-				boost::split(
-					case_file, case_file_str, is_semicolon
-				);
-
-				cout << "Correct: you win" << case_file[0] << ", "  
-					 << case_file[1] << ", " << case_file[2] << endl;
-
-				handle_response = false;
-				confirming = true;
-
-				correct = true;
-				// at this point, we know whether we won or lost
-				// we just need the player to hit confirm to continue
-			}
-			else {
-				cout << "client_accusation- unexpected message from server: " << action << endl;
-			}
-    	}
-    	else {
-    		// just waiting to confirm
-    		// TODO: this should be a button with a continue button. for now just send end_turn_str to server
-
-    		cout << "confirming accusation ending." << endl;
-
-    		// out = write(client_socket, end_turn_str.c_str(), end_turn_str.size() + 2);
-
-    		confirming = false;
-
-    	}
-	}
-
-	cout << "done." << endl;
-
-
-	return correct;
-}
-
-
-
-// return index of the 3 cards to show
-string getting_suggested(string action, SDL_Renderer* renderer){
-	string all_card_str = action.substr(5);
-	vector<string> show_cards;
-
-	SDL_Event e;
-	int n_options, card_to_render, mouse_output;
-	string card_to_show;
-
-	boost::split(
-		show_cards, all_card_str, is_semicolon
-	);
-
-	n_options = show_cards.size();
-	mouse_output = n_options + 10;	// set default
-
-
-	for (int i = 0; i < n_options; i++){
-		cout << show_cards[i] << endl;
-	}
-
-
-	// test rendering here, until anything is clicked
-	bool done = false;
-	while (!done){
-		// render everything every loop
-		SDL_RenderClear(renderer);		
-		SDL_RenderCopy(renderer, suggest_background, NULL, &background_rect);
-		for (int i = 0; i < n_options; i++){
-			// render all matching cards
-			// get int corresponding to card_image_map key
-			card_to_render = reverse_card_map[show_cards[i]];	
-			SDL_RenderCopy(renderer, card_image_map[card_to_render], NULL, &suggest_rect_map[i + 1]);
-		}
-
-		SDL_RenderPresent(renderer);	// update screen 
-
-
-		// now get mouse activity
-		// exit when clicked on a valid card
-		while (SDL_PollEvent(&e)){
-	        if ((e.type == SDL_MOUSEBUTTONDOWN) && (e.button.button == SDL_BUTTON_LEFT)){
-	        	mouse_output = handle_getting_suggested_mouse();
-	        }
-	    }
-
-	    if (mouse_output <= n_options){
-	    	card_to_show = show_cards[mouse_output - 1];
-	    	done = true;
-	    }
-	}
-
-	// cout << "nested: " << card_to_show << endl;
-
-	return card_to_show;
-}
-
-
-
-
 // note much of the network programming is similar to the server side code
 // this also includes functionality for the GUI (using SDL)
 int main(int argc, char *argv[]){
+	// client instance variables
 	int client_socket, client_id, address_length, player_id;
 	struct hostent *server;
+	vector<int> hand;
+
 	char buffer[STREAM_SIZE];
 	string tmp;
+	int tmp_card;
+
 
 	// for handling delimited incoming messages from server
 	int tmp_player, tmp_location, tmp_weapon;
 	vector<string> split_message;
+
+
 
 	// initialize player locations to starting blocks
 	for (int i = 0; i < 6; i++){
@@ -580,15 +173,27 @@ int main(int argc, char *argv[]){
 		// set renderer draw colour
 		SDL_SetRenderDrawColor( renderer, 0, 0, 0, 0xFF );	// black
 
-		// initialize png and jpg loading
+		// initialize png/jpg loading, and font handling
 		int img_flags = IMG_INIT_PNG | IMG_INIT_JPG;
 		if (!(IMG_Init(img_flags) & img_flags)){
 			printf("couldn't initialize png and jpg, error: %s\n", IMG_GetError());
+		}
+		if (TTF_Init() == -1){
+			printf("couldn't initialize ttf, error: %s\n", TTF_GetError() );
+			success = false;
 		}
 	}
 
 	// load clue images
 	load_all_media(renderer);
+
+	// prepare to render notifications
+	queue< SDL_Texture* > pending_notifications;
+	queue<SDL_Rect> pending_rect;
+
+	SDL_Texture* current_notif = NULL;
+	SDL_Rect* current_notif_rect = NULL;
+	int notif_iteration = 0;	// todo: use time rather than iterations
 
 
 
@@ -609,16 +214,36 @@ int main(int argc, char *argv[]){
 	bool quit = false;
 	bool premature_quit = false;	// if someone exits their window
 	string action, response, mouse_output, temp_cards, card_to_show;
+	string notification_text;
 	
-	int incoming_stream;
+	int action_player, incoming_stream;
 	bool turn_end = false;
 	bool done = false;
 
 
-	// SDL_RenderClear(renderer);
+	// need to get our hand
+	while (!done){
+		action = ping_server(
+			&server_set, max_connection, client_socket, quick
+		);
+
+		if ((action.length() > 10) && (action.substr(0, 10).compare("Your hand:") == 0)){
+			tmp = action.substr(10);
+			boost::split(split_message, tmp, is_semicolon);
+			
+			for (int i = 0; i < split_message.size(); i++){
+				istringstream(split_message[i]) >> tmp_card;
+				cout << "testing: card " << split_message[i] << endl;
+				hand.push_back(tmp_card);
+			}
+
+			done = true;
+		}
+	}
 
 
-	
+
+	done = false;
 	// this is the main loop for each client
 	// different functionality depending on whether it is your turn
 	// we also render every iteration, since the game state changes
@@ -633,9 +258,39 @@ int main(int argc, char *argv[]){
 		SDL_RenderCopy(renderer, board, NULL, &background_rect);
 		render_all_players(player_locations, renderer);
 
-		SDL_RenderPresent(renderer);	// update screen 
+		// 	render_notifications()		// TODO: abstract this. it's a bit tricky since we have the queue defined locally
+		if (current_notif == NULL){
+			if (!pending_notifications.empty()){
+				cout << "getting from queue" << endl;
+				current_notif = pending_notifications.front();
+				current_notif_rect = &pending_rect.front();
+				notif_iteration = 1;
 
-		// cout << "plz" << endl;	// for debugging
+				cout << "popping from queue" << endl;
+				cout << to_string(current_notif == NULL) << endl;
+
+				pending_notifications.pop();
+				pending_rect.pop();
+
+				cout << "empty queue? " << to_string(pending_notifications.empty()) << endl;
+			}
+		}
+		else if (notif_iteration >= 100){
+			// stop showing current notification after 10 iterations (todo later: use time)
+			// on the next iteration, we will reassign current notification
+			current_notif = NULL;
+			current_notif_rect = NULL;
+			notif_iteration = 0;
+		}
+		else {
+			// first render background, then render current notification
+			SDL_RenderCopy(renderer, notify_background, NULL, &notification_rect);
+			SDL_RenderCopy(renderer, current_notif, NULL, current_notif_rect);
+			notif_iteration++;
+		}
+
+		
+		SDL_RenderPresent(renderer);	// update screen 
 		
 
 
@@ -699,6 +354,10 @@ int main(int argc, char *argv[]){
 
 			        	if (mouse_output.compare(empty_space) == 0){
 			        		cout << mouse_output << endl;
+			        	}
+			        	else if (mouse_output.compare(show_hand_str) == 0){
+			        		cout << "testing: render hand" << endl;
+			        		render_hand(renderer, hand);
 			        	}
 			        	else if (mouse_output.compare(navigate_str) == 0){
 			        		// send to server
@@ -783,6 +442,8 @@ int main(int argc, char *argv[]){
 									&server_set, max_connection, client_socket, quick
 								);
 
+								// todo: if this says "Game over", print the victor and quit
+
 							}
 			        	}
 			        	else if ((mouse_output.compare(pass_str) == 0) || (mouse_output.compare(stay_str) == 0)){
@@ -839,13 +500,9 @@ int main(int argc, char *argv[]){
 			cout << "turn ending" << endl;
 		}	
 
-		// now we need to handle logic that happens when it's not your turn
-		// unfortunately these pretty much all have different logic
+		// here, we need to handle logic that happens when it's not your turn
+		// these pretty much all have different logic
 		// so we can't aggregate all the conditions together
-		// TODO: maybe stick it all in a new method
-
-		// cout << " pre-show logic: "  << action << action.substr(0, 5) << endl;
-		// cout << to_string(action.substr(0, 5).compare("Show:")) << endl;
 
 		if (action.substr(0, 9).compare("Suggests:") == 0){
 			// update location for whoever was suggested
@@ -857,8 +514,27 @@ int main(int argc, char *argv[]){
 			player_locations[tmp_player] = tmp_location;
 
 
+			// and make notification banner
+			istringstream(split_message[0]) >> action_player;
 
-			// TODO: NOTIFICATION BANNER HERE
+			notification_text = card_map[action_player + 1] 
+				+ " suggested: " + split_message[1] + ", "
+				+ split_message[2] + ", " + split_message[3];
+
+
+			SDL_Surface* tmp_surface = NULL;
+			tmp_surface = TTF_RenderText_Solid(blood_font, notification_text.c_str(), red);
+
+			SDL_Rect notif_rect = {
+				SCREEN_WIDTH / 2 - (tmp_surface->w) / 2, 92 * SCREEN_HEIGHT / 100, tmp_surface->w, tmp_surface->h
+			};
+
+			pending_notifications.push(SDL_CreateTextureFromSurface(renderer, tmp_surface));
+			pending_rect.push(notif_rect);
+
+			SDL_FreeSurface(tmp_surface);
+
+
 		}
 
 		else if (action.substr(0, 5).compare("Show:") == 0){
@@ -884,7 +560,7 @@ int main(int argc, char *argv[]){
     		}
 		}
 		else if (action.substr(0, 7).compare("Moving:") == 0){
-			// someone else is moving
+			// someone else is moving. no need for notification, just update position
 			tmp = action.substr(7);
 			boost::split(
 				split_message, tmp, is_semicolon
@@ -894,7 +570,9 @@ int main(int argc, char *argv[]){
 
 			player_locations[tmp_player] = tmp_location;
 		}
-    	// other incoming strings we need to handle: (make sure to check string length beforehand)
+
+
+    	// TODO: other incoming strings we need to handle: (make sure to check string length beforehand)
     	// action.compare(no_show_individual) == 0		// someone tried to suggest you, you didn't have any of the cards
     	// action.substr(0, 9).compare("No cards:") 	// someone tried to suggest someone else; they had none of the cards.
     		// action.substr(10) should have the suggested player encoded there
@@ -909,7 +587,7 @@ int main(int argc, char *argv[]){
 
 
 
-		// looks like we need this to maintain the gui, else it disappears
+		// we need this to maintain the gui, else it disappears
 		mouse_output = location_map[handle_board_mouse()];
 
 		// SDL_WaitEvent(&e);	this is more efficient, but 
@@ -926,25 +604,6 @@ int main(int argc, char *argv[]){
 	        		
 
 	        	}
-	        	// probably just handle the 'show hand' toggle here
-	        		// actually to make it easier, only allow it on your turn for now
-
-	        	// else if (mouse_output.compare()){
-	        	// 	cout << "TOP LEFT CLICK!" << endl;
-	        	// }
-	        	// else if (mouse_output == 2){
-	        	// 	cout << "TOP RIGHT CLICK!" << endl;
-	        	// }
-	        	// else if (mouse_output == 3){
-	        	// 	cout << "BOTTOM LEFT CLICK!" << endl;
-	        	// }
-	        	// else if (mouse_output == 4){
-	        	// 	cout << "BOTTOM RIGHT CLICK!" << endl;
-	        	// }
-	        	// else {
-	        	// 	turn_end = false;
-	        	// 	cout << "invalid click?" << endl;
-	        	// }
 	        }	        
 	    }
 		
@@ -968,7 +627,9 @@ int main(int argc, char *argv[]){
     SDL_Quit();
 
 
-    // will exit immediately; need to write code for gameplay continuation
+    // will exit immediately; need to write code for gameplay continuation if we wanna render 
+    // a "game over" screen or sth like that
+
     // while (true){
 
     // }

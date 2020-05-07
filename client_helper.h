@@ -25,9 +25,11 @@ extern SDL_Texture* load_image(string, SDL_Renderer*);
 extern int handle_suggest_mouse();
 extern int handle_getting_suggested_mouse();
 extern int handle_board_mouse();
-extern void render_all_players(unordered_map<int, int>, SDL_Renderer*);
 
-extern string ping_server(fd_set*, int, int, timeval);
+extern void render_hand(SDL_Renderer*, vector<int>);
+extern bool return_to_board();
+
+extern void render_all_players(unordered_map<int, int>, SDL_Renderer*);
 
 extern void load_all_media(SDL_Renderer*);
 extern void fill_location_map();
@@ -47,8 +49,6 @@ extern const int suggest3_x0, suggest3_xf;
 
 extern const int accuse_y1, accuse_y2, accuse_y3, accuse_y4, accuse_y5, accuse_y6;
 
-extern const int accuse_x1, accuse_x2, accuse_x3, accuse_x4, accuse_x5, accuse_x6;
-
 
 // coordinates for each board position
 // the board is generally symmetric so a lot of quantities can be derived
@@ -64,8 +64,15 @@ extern const int hall_end1, hall_end2, hall_end3;
 // textures for actual images
 extern SDL_Texture* board;
 extern SDL_Texture* suggest_background;
+extern SDL_Texture* notify_background;
+extern SDL_Texture* hand_background;
 
-extern SDL_Rect background_rect;
+// for formatting text
+extern TTF_Font* laser_font;
+extern TTF_Font* blood_font;
+extern SDL_Color silver, red;
+
+extern SDL_Rect background_rect, notification_rect;
 extern SDL_Rect suggest_rect1, suggest_rect2, suggest_rect3;
 
 

@@ -24,6 +24,7 @@ unordered_map<int, int> bridge;
 
 
 // used to communicate between client/server
+string show_hand_str = "show hand";
 string navigate_str = "navigate";
 string suggest_str = "suggest";
 string accuse_str = "accuse";
@@ -158,12 +159,14 @@ void populate_location_map(){
 	location_map[-5] = "Starting Block";
 	location_map[-6] = "Starting Block";
 
+	location_map[30] = show_hand_str;
 	location_map[31] = navigate_str;
 	location_map[32] = suggest_str;
 	location_map[33] = accuse_str;
 	location_map[34] = pass_str;
 	location_map[35] = stay_str;
 	location_map[36] = empty_space;
+
 
 	// this is horrible, but unfortunately map iteration only 
 	// works on compilers that don't work with fd_set

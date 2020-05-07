@@ -132,11 +132,11 @@ int main(int argc, char *argv[]){
 	
 	
 
-	// show cards to players once
-	// not necessary with the GUI
-	// for (int i = 0; i < n_clients; i++){
-	// 	GamePlay::show_hand(socket_tracker[i], &players[i]);
-	// }
+	// show cards to clients once
+	for (int i = 0; i < n_clients; i++){
+		GamePlay::show_hand(socket_tracker[i], &players[i]);
+		if (usleep(10000) == -1) cout << "gameplay: failed to clear buffer" << endl;
+	}
 	
 
 	
