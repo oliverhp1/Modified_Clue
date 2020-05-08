@@ -201,8 +201,6 @@ int main(int argc, char *argv[]){
 	// broadcast to all 
 	string loser_message = "Game Over: " 
 		+ card_map[winning_player + 1] + " Wins.\r\n";
-	string winner_message = "You win!\r\n";
-
 	cout << loser_message << endl;
 
 	for (int i = 0; i < n_clients; i++){

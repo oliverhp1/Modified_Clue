@@ -1,12 +1,12 @@
 #include "client_gameplay.h"
-#include "client_helper.h"
+#include "client_gui.h"
 #include "globals.h"
 
 
 
 // check socket for messages from server
 // return empty immediately if nothing is written
-// we need this since SDL cannot maintain the images it renders
+// we need this since SDL cannot show_notif the images it renders
 // unless we are constantly refreshing the board
 string ping_server(fd_set* server_set, int max_connection, int client_socket, timeval quick){
 	string message = "";
@@ -169,20 +169,47 @@ void confirm_suggestion(SDL_Renderer* renderer, fd_set* server_set,
 		int max_connection, int client_socket, timeval quick){
 
 	SDL_Event e;
-	string action, look_str;
+	string action, look_str, notification_text;
 	int showing_player, mouse_output, out;
+	int notif_iteration = 0;
+	SDL_Texture* temp_notif = NULL;
+
+	SDL_Rect temp_notif_rect;
 
 	vector<string> player_and_card;
 
 	bool get_response = true;
 	bool confirming = false;
+	bool show_notif = false;
 
 	// iterate until all suggestion logic has concluded
 	while (get_response || confirming){
-		// maintain background
+		// render background
 		SDL_RenderClear(renderer);
 		SDL_RenderCopy(renderer, suggest_background, NULL, &background_rect);
-		SDL_RenderPresent(renderer);
+
+		// render notification if necessary
+		if (temp_notif != NULL){
+			SDL_RenderCopy(renderer, notify_background, NULL, &notification_rect);
+			SDL_RenderCopy(renderer, temp_notif, NULL, &temp_notif_rect);
+			SDL_RenderPresent(renderer);
+
+			if (show_notif){		// show banner for n iterations
+				notif_iteration++;
+
+				while (SDL_PollEvent(&e)){
+					if (e.type == SDL_QUIT){
+			            show_notif = false;
+			        }
+			    }
+				if (notif_iteration >= 200){
+					show_notif = false;
+					temp_notif = NULL;
+					notif_iteration = 0;
+				}
+				continue;	// don't get any other messages until done
+			}
+		}
 
 		if (get_response){
     		// need to get a sequence of numbers indicating who showed us what card
@@ -191,20 +218,46 @@ void confirm_suggestion(SDL_Renderer* renderer, fd_set* server_set,
 				server_set, max_connection, client_socket, quick
 			);
 
-			if ((action.length() == 9) && (action.substr(0, 9).compare("No cards:") == 0)){
-				// TODO: write a notification badge 
-				cout << "player " << action.substr(10) << "has none of the suggested cards " << endl;
+			if ((action.length() > 9) && (action.substr(0, 9).compare("No cards:") == 0)){
+				// someone had none of the cards. make a notification badge
+				notification_text = action.substr(9) + " had none of the suggested cards";
+				cout << notification_text << endl;
+
+				SDL_Surface* tmp_surface = NULL;
+				tmp_surface = TTF_RenderText_Solid(blood_font, notification_text.c_str(), red);
+
+				temp_notif_rect = (SDL_Rect) {
+					SCREEN_WIDTH / 2 - (tmp_surface->w) / 2, BANNER_HEIGHT, tmp_surface->w, tmp_surface->h
+				};
+
+				temp_notif = SDL_CreateTextureFromSurface(renderer, tmp_surface);
+				SDL_FreeSurface(tmp_surface);
+				show_notif = true;
+
 			}
 			else if ((action.length() > 5) && (action.substr(0, 5).compare("Look:") == 0)){
 				// someone is showing you a card
-				// this is just a notification badge as well! no actual logic required
+				// this is just a notification badge, no actual logic required
 				look_str = action.substr(5);
 
 				boost::split(
 					player_and_card, look_str, is_semicolon
 				);
 				istringstream(player_and_card[0]) >> showing_player;
-				cout << "player " << player_and_card[0] << " shows you " << player_and_card[1] << endl;
+
+				notification_text = card_map[showing_player + 1] + " shows: " + player_and_card[1];
+				cout << notification_text << endl;
+
+				SDL_Surface* tmp_surface = NULL;
+				tmp_surface = TTF_RenderText_Solid(blood_font, notification_text.c_str(), red);
+
+				temp_notif_rect = (SDL_Rect) {
+					SCREEN_WIDTH / 2 - (tmp_surface->w) / 2, BANNER_HEIGHT, tmp_surface->w, tmp_surface->h
+				};
+
+				temp_notif = SDL_CreateTextureFromSurface(renderer, tmp_surface);
+				SDL_FreeSurface(tmp_surface);
+				show_notif = true;
 
 
 				// at this point, a player has responded with their card
@@ -213,11 +266,6 @@ void confirm_suggestion(SDL_Renderer* renderer, fd_set* server_set,
 				confirming = true;
 			}
 			else if (action.compare(nobody_showed) == 0){
-				// TODO: write a notification badge with continue button
-				// if we really want that here, then set confirming = false so we exit immediately.
-
-				cout << "nobody had any of the cards" << endl;
-
 				// if we get here, we are done as well; just need to hit confirm to continue
 				get_response = false;
 				confirming = true;
@@ -304,7 +352,8 @@ string getting_suggested(string action, SDL_Renderer* renderer){
 // some parts similar to suggest but there are significant differences
 // return true of accusation is correct
 bool client_accusation(SDL_Renderer* renderer, fd_set* server_set, 
-	int max_connection, int client_socket, timeval quick){
+	int max_connection, int client_socket, timeval quick,
+	queue< SDL_Texture* > *pending_notifications, queue<SDL_Rect> *pending_rect){
 
 	SDL_Event e;
 	string action, response;
@@ -415,7 +464,7 @@ bool client_accusation(SDL_Renderer* renderer, fd_set* server_set,
 	    }
 	}
 
-	correct = validate_accusation(action);
+	correct = validate_accusation(action, renderer, pending_notifications, pending_rect);
 
 	// done; return result
 	return correct;
@@ -425,9 +474,10 @@ bool client_accusation(SDL_Renderer* renderer, fd_set* server_set,
 
 
 // given string output from server, decide if accusation was correct
-bool validate_accusation(string action){
+bool validate_accusation(string action, SDL_Renderer* renderer, 
+		queue< SDL_Texture* > *pending_notifications, queue<SDL_Rect> *pending_rect){
 	// we are done deciding on accusation.  need to validate result from server
-	string case_file_str;
+	string case_file_str, temp_text;
 	vector<string> case_file;
 
 	bool correct = false;
@@ -443,8 +493,13 @@ bool validate_accusation(string action){
 			case_file, case_file_str, is_semicolon
 		);
 
-		cout << "Wrong accusation: " << case_file[0] << ", "  
-			 << case_file[1] << ", " << case_file[2] << endl;
+		// if wrong, notification banner
+		temp_text = "Incorrect. Case file: " + case_file[0] + ", "  
+			 + case_file[1] + ", " + case_file[2];
+
+
+		cout << temp_text << endl;
+		push_banner(temp_text, renderer, pending_notifications, pending_rect);
 
 		correct = false;
 	}

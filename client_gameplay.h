@@ -11,13 +11,15 @@
 #include <sstream>
 #include <csignal>
 #include <boost/algorithm/string.hpp>
+#include <queue>
 
 
 
 extern string ping_server(fd_set*, int, int, timeval);
 
-extern bool client_accusation(SDL_Renderer*, fd_set*, int, int, timeval);
-extern bool validate_accusation(string);
+extern bool client_accusation(SDL_Renderer*, fd_set*, int, int, timeval, 
+	queue< SDL_Texture* > *, queue<SDL_Rect> *);
+extern bool validate_accusation(string, SDL_Renderer*, queue< SDL_Texture* > *, queue<SDL_Rect> *);
 
 extern void client_suggestion(SDL_Renderer*, fd_set*, int, int, int, timeval);
 extern void confirm_suggestion(SDL_Renderer*, fd_set*, int, int, timeval);

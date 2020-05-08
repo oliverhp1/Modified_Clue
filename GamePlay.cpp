@@ -403,6 +403,7 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 				
 			}
 			cout << no_show_broadcast << endl;
+			if (usleep(20000) == -1) cout << "failed to pause/clear buffer";
 
 			continue;
 		}
@@ -425,7 +426,7 @@ int GamePlay::suggest(int player_id, int* socket_tracker, Server server, Player*
 			+ ";" + card_map[player_id + 1];
 
 		// tell suggesting player: player_id and what card they showed
-		show_card_str = "Look:" + to_string(temp_id + 1)
+		show_card_str = "Look:" + to_string(temp_id)
 			+ ";" + show_card;
 
 		for (int j = 0; j < n_clients; j++){
@@ -506,6 +507,7 @@ void GamePlay::accuse(int player_id, int* socket_tracker, Server server, Player*
 	}
 	// also output on the server
 	cout << accuse_broadcast;
+	if (usleep(10000) == -1) cout << "failed to pause/clear buffer";
 
 
 	// now check correctness
@@ -520,15 +522,18 @@ void GamePlay::accuse(int player_id, int* socket_tracker, Server server, Player*
 
 
 		// then notify everyone else
-		string deactivated = 
-			"Deactivated:" + to_string(player_id);
+		// everyone else already got the accusing player above; just need to say it was wrong
+		// string deactivated = 
+		// 	"Deactivated:" + card_map[player_id + 1];
 
 		for (int i = 0; i < n_clients; i++){
 			if (i != player_id){
-				send(socket_tracker[i], deactivated.c_str(), deactivated.size(), 0);
+				send(socket_tracker[i], deactivate_str.c_str(), deactivate_str.size(), 0);
 			}
 		}
-		cout << deactivated;
+		cout << deactivate_str << endl;;
+		if (usleep(10000) == -1) cout << "failed to pause/clear buffer";
+
 	}
 	else {
 		// otherwise, set the winning condition

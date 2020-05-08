@@ -1,6 +1,6 @@
 #include "Client.h"
 #include "globals.h"
-#include "client_helper.h"
+#include "client_gui.h"
 #include "client_gameplay.h"
 
 #include <netdb.h>
@@ -15,21 +15,15 @@ using namespace std;
 
 
 
-
-
-
 // note much of the network programming is similar to the server side code
 // this also includes functionality for the GUI (using SDL)
 int main(int argc, char *argv[]){
 	// client instance variables
-	int client_socket, client_id, address_length, player_id;
-	struct hostent *server;
-	vector<int> hand;
-
+	int client_socket, client_id, address_length, player_id, tmp_card;
+	string tmp, message;
 	char buffer[STREAM_SIZE];
-	string tmp;
-	int tmp_card;
-
+	vector<int> hand;
+	
 
 	// for handling delimited incoming messages from server
 	int tmp_player, tmp_location, tmp_weapon;
@@ -55,6 +49,7 @@ int main(int argc, char *argv[]){
        exit(1);
     }
 	int port = atoi(argv[2]);
+	struct hostent *server;
     server = gethostbyname(argv[1]);
 
     if (server == NULL) {
@@ -105,11 +100,8 @@ int main(int argc, char *argv[]){
     istringstream(tmp) >> player_id;
     
 
-    bool start = false;
-    string message;
-
-
     // attempt to start the game 
+    bool start = false;
     while (!start){
     	// clear buffer
     	memset(buffer, 0, 255);
@@ -133,8 +125,7 @@ int main(int argc, char *argv[]){
 
     // when game starts, initialize all static SDL/GUI functionality
     // and load all media/images
-
-    // initialize sdl
+    // first initialize sdl
     int success;
     success = SDL_Init(SDL_INIT_VIDEO);
 
@@ -156,10 +147,9 @@ int main(int argc, char *argv[]){
     );
 
     if (window == NULL){
-		printf("Error on creating window: %s\nexiting...", SDL_GetError() );
+		printf("Error on creating window: %s\nexiting...", SDL_GetError());
 		exit(1);
 	}
-
 
 
 	// initialize renderer (will draw on the window)
@@ -170,8 +160,8 @@ int main(int argc, char *argv[]){
 		printf("couldn't make renderer; error: %s\n", SDL_GetError() );
 	}
 	else{
-		// set renderer draw colour
-		SDL_SetRenderDrawColor( renderer, 0, 0, 0, 0xFF );	// black
+		// set renderer default draw colour
+		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0xFF);	// black
 
 		// initialize png/jpg loading, and font handling
 		int img_flags = IMG_INIT_PNG | IMG_INIT_JPG;
@@ -219,6 +209,7 @@ int main(int argc, char *argv[]){
 	int action_player, incoming_stream;
 	bool turn_end = false;
 	bool done = false;
+	bool maintain = false;
 
 
 	// need to get our hand
@@ -233,7 +224,7 @@ int main(int argc, char *argv[]){
 			
 			for (int i = 0; i < split_message.size(); i++){
 				istringstream(split_message[i]) >> tmp_card;
-				cout << "testing: card " << split_message[i] << endl;
+				// cout << "testing: card " << split_message[i] << endl;
 				hand.push_back(tmp_card);
 			}
 
@@ -243,6 +234,7 @@ int main(int argc, char *argv[]){
 
 
 
+	bool win = false;
 	done = false;
 	// this is the main loop for each client
 	// different functionality depending on whether it is your turn
@@ -258,7 +250,8 @@ int main(int argc, char *argv[]){
 		SDL_RenderCopy(renderer, board, NULL, &background_rect);
 		render_all_players(player_locations, renderer);
 
-		// 	render_notifications()		// TODO: abstract this. it's a bit tricky since we have the queue defined locally
+		// TODO: abstract this. it's a bit tricky since we have the queue defined locally. can pass in a pointer
+		// 	render_notifications()		
 		if (current_notif == NULL){
 			if (!pending_notifications.empty()){
 				cout << "getting from queue" << endl;
@@ -266,30 +259,52 @@ int main(int argc, char *argv[]){
 				current_notif_rect = &pending_rect.front();
 				notif_iteration = 1;
 
-				cout << "popping from queue" << endl;
-				cout << to_string(current_notif == NULL) << endl;
-
 				pending_notifications.pop();
 				pending_rect.pop();
 
-				cout << "empty queue? " << to_string(pending_notifications.empty()) << endl;
 			}
 		}
-		else if (notif_iteration >= 100){
-			// stop showing current notification after 10 iterations (todo later: use time)
+		else if ((notif_iteration >= 100) && !maintain){
+			// stop showing current notification after n iterations (todo later: use time)
 			// on the next iteration, we will reassign current notification
 			current_notif = NULL;
 			current_notif_rect = NULL;
 			notif_iteration = 0;
+		}
+		else if (maintain && (notif_iteration >= 200)){		// when maintaining, loops go faster
+			notif_iteration = 0;
+
+			if (pending_notifications.empty()){		// done; continue
+				current_notif = NULL;
+				current_notif_rect = NULL;
+				
+				maintain = false;
+			}
+			else {
+				// clear the backlog and continue maintaining
+				current_notif = pending_notifications.front();
+				current_notif_rect = &pending_rect.front();
+
+				pending_notifications.pop();
+				pending_rect.pop();
+
+				SDL_RenderPresent(renderer);
+				continue;
+			}
+			
 		}
 		else {
 			// first render background, then render current notification
 			SDL_RenderCopy(renderer, notify_background, NULL, &notification_rect);
 			SDL_RenderCopy(renderer, current_notif, NULL, current_notif_rect);
 			notif_iteration++;
+
+			if (maintain) {
+				SDL_RenderPresent(renderer);
+				continue;		// delay receiving the next message
+			}
 		}
 
-		
 		SDL_RenderPresent(renderer);	// update screen 
 		
 
@@ -311,6 +326,11 @@ int main(int argc, char *argv[]){
 		    }
 
 			cout << "turn starting!" << endl;
+			// clear notification from previous turn if necessary
+			current_notif = NULL;
+			current_notif_rect = NULL;
+			notif_iteration = 0;
+
 
 			// get initial turn action possibilities
 			incoming_stream = read(client_socket, buffer, STREAM_SIZE);
@@ -433,8 +453,9 @@ int main(int argc, char *argv[]){
 
 							if (action.compare(request_player) == 0){
 								// kick off suggestion method here
-								client_accusation(
-									renderer, &server_set, max_connection, client_socket, quick
+								win = client_accusation(
+									renderer, &server_set, max_connection, client_socket, quick,
+									&pending_notifications, &pending_rect
 								);
 
 								// get subsequent action
@@ -442,7 +463,7 @@ int main(int argc, char *argv[]){
 									&server_set, max_connection, client_socket, quick
 								);
 
-								// todo: if this says "Game over", print the victor and quit
+								turn_end = true;	// turn ends no matter what happens
 
 							}
 			        	}
@@ -503,8 +524,10 @@ int main(int argc, char *argv[]){
 		// here, we need to handle logic that happens when it's not your turn
 		// these pretty much all have different logic
 		// so we can't aggregate all the conditions together
+		// also it's probably not worth it putting the banner creation in its own method
+		// since we need both the rect and the texture
 
-		if (action.substr(0, 9).compare("Suggests:") == 0){
+		else if (action.substr(0, 9).compare("Suggests:") == 0){
 			// update location for whoever was suggested
 			tmp = action.substr(9);
 			boost::split(split_message, tmp, is_semicolon);
@@ -521,24 +544,12 @@ int main(int argc, char *argv[]){
 				+ " suggested: " + split_message[1] + ", "
 				+ split_message[2] + ", " + split_message[3];
 
-
-			SDL_Surface* tmp_surface = NULL;
-			tmp_surface = TTF_RenderText_Solid(blood_font, notification_text.c_str(), red);
-
-			SDL_Rect notif_rect = {
-				SCREEN_WIDTH / 2 - (tmp_surface->w) / 2, 92 * SCREEN_HEIGHT / 100, tmp_surface->w, tmp_surface->h
-			};
-
-			pending_notifications.push(SDL_CreateTextureFromSurface(renderer, tmp_surface));
-			pending_rect.push(notif_rect);
-
-			SDL_FreeSurface(tmp_surface);
-
+			push_banner(notification_text, renderer, &pending_notifications, &pending_rect);
 
 		}
-
 		else if (action.substr(0, 5).compare("Show:") == 0){
     		// being forced to show a card; iterate until we get a valid option
+    		// no need for banner here, the suggest banner will cover it
     		done = false;
 
     		while (!done){
@@ -570,20 +581,58 @@ int main(int argc, char *argv[]){
 
 			player_locations[tmp_player] = tmp_location;
 		}
+		else if (action.compare(no_show_individual) == 0){
+			// you had none of the suggested cards
+			push_banner(no_show_individual, renderer, &pending_notifications, &pending_rect);
+		}
+		else if (action.substr(0, 9).compare("No cards:") == 0){
+			// someone tried to suggest someone else; they had none of the cards.
+			notification_text = action.substr(9) + " had none of the suggested cards";
+
+			push_banner(notification_text, renderer, &pending_notifications, &pending_rect);
+		}
+		else if ((action.length() > 15) && action.substr(0, 15).compare("Show broadcast:") == 0){
+			// someone else showed someone else a card
+			tmp = action.substr(15);
+			boost::split(
+				split_message, tmp, is_semicolon
+			);
+			notification_text = split_message[0] + " showed " + split_message[1] + " a card";
+			push_banner(notification_text, renderer, &pending_notifications, &pending_rect);
+		}
+		else if ((action.length() > 11) && action.substr(0, 11).compare("Accusation:") == 0){
+			// someone made an accusation
+			tmp = action.substr(15);
+			boost::split(
+				split_message, tmp, is_semicolon
+			);
+			notification_text = split_message[0] + " accuses: " + split_message[1] + ", "
+				+ split_message[2] + ", " + split_message[3];
+
+			push_banner(notification_text, renderer, &pending_notifications, &pending_rect);
+			maintain = true;
+		}
+		else if (action.compare(deactivate_str) == 0){
+			// incorrect accusation
+			push_banner(deactivate_str, renderer, &pending_notifications, &pending_rect);
+			maintain = true;
+		}
+		else if ((action.length() > 10) && action.substr(0, 10).compare("Case file:") == 0){
+			// someone else wins. get case file
+			tmp = action.substr(10);
+			boost::split(
+				split_message, tmp, is_semicolon
+			);
+			quit = true;
+		}
+		else if (action.compare(winner_message) == 0){
+			// if you win when it's not your turn, it means you're the last one standing
+			quit = true;
+			win = true;
+		}
 
 
-    	// TODO: other incoming strings we need to handle: (make sure to check string length beforehand)
-    	// action.compare(no_show_individual) == 0		// someone tried to suggest you, you didn't have any of the cards
-    	// action.substr(0, 9).compare("No cards:") 	// someone tried to suggest someone else; they had none of the cards.
-    		// action.substr(10) should have the suggested player encoded there
-    	// show_card_broadcast = "Show broadcast:"	// someone else showed someone else a card
-
-    	// for accusations:
-    	// action.substr(0, 11).compare("Accusation:")	// someone tried an accusation
-    	// "Case file:"		// someone successfully accused. returns 3 strings, go to end game screen and show winner/case file
-    	// "Deactivated:"	// unsuccessfully accused. returns an int for player_id
-    			// do clients need to track which players are deactivated? i don't think it impacts them
-
+		
 
 
 
@@ -622,17 +671,20 @@ int main(int argc, char *argv[]){
 
 	// at this point, game has ended.
 
+	if (win){
+		// render winning screen (also render case file)
+		cout << "you win" << endl;
+	}
+	else {
+		// render losing screen, with case file
+		// maintain the notepad
+		cout << "you lose" << endl;
+	}
+
     // clear memory used by SDL
 	SDL_DestroyWindow( window );
     SDL_Quit();
 
-
-    // will exit immediately; need to write code for gameplay continuation if we wanna render 
-    // a "game over" screen or sth like that
-
-    // while (true){
-
-    // }
 
     close(client_socket);
     return 0;

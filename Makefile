@@ -13,7 +13,7 @@ SERVER_NAME = server
 CLIENT_NAME = client
 
 SERVER_FILES = ClueLess.cpp Server.cpp Player.cpp GamePlay.cpp globals.cpp
-CLIENT_FILES = Client.cpp globals.cpp Player.cpp client_helper.cpp client_gameplay.cpp
+CLIENT_FILES = Client.cpp globals.cpp Player.cpp client_gui.cpp client_gameplay.cpp
 
 
 all: $(SERVER_NAME) $(CLIENT_NAME)

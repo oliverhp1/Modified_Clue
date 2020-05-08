@@ -21,7 +21,7 @@
 
 #include <netinet/in.h>
 
-#define MAX_CLIENTS 2   // define in globals instead
+#define MAX_CLIENTS 3   // define in globals instead
 #define STREAM_SIZE 1024
 
 

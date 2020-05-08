@@ -4,9 +4,9 @@ using namespace std;
 
 
 bool game_started = false;
-int max_clients = 2;
+int max_clients = 3;
 
-Player players[2];
+Player players[3];
 
 
 
@@ -295,6 +295,8 @@ string force_move = "Only one choice for navigation.";
 string no_show_individual = "You do not have any of the suggested cards.";
 string nobody_showed = "Nobody showed.";
 string end_turn_str = "Ending.";
+string deactivate_str = "Incorrect; deactivating.";
+string winner_message = "You win!";
 
 // for validating inputs (probably won't need this with a GUI)
 // these terminating strings are not great, but it's impossible to
