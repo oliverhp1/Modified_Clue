@@ -5,19 +5,20 @@ using namespace std;
 
 
 // static attributes
-const int SCREEN_WIDTH = 720;
-const int SCREEN_HEIGHT = 720;
+const int SCREEN_WIDTH = 1017;
+const int SCREEN_HEIGHT = 765;
+const int BOARD_WIDTH = SCREEN_WIDTH;
 
 
 // coordinates for each card when getting suggested
 const int suggest_y0 = SCREEN_HEIGHT / 3;
 const int suggest_yf = 2 * SCREEN_HEIGHT / 3;
-const int suggest1_x0 = 3 * SCREEN_WIDTH / 28;
-const int suggest1_xf = 9 * SCREEN_WIDTH / 28;
-const int suggest2_x0 = 11 * SCREEN_WIDTH / 28;
-const int suggest2_xf = 17 * SCREEN_WIDTH / 28;
-const int suggest3_x0 = 19 * SCREEN_WIDTH / 28;
-const int suggest3_xf = 25 * SCREEN_WIDTH / 28;
+const int suggest1_x0 = 3 * BOARD_WIDTH / 28;
+const int suggest1_xf = 9 * BOARD_WIDTH / 28;
+const int suggest2_x0 = 11 * BOARD_WIDTH / 28;
+const int suggest2_xf = 17 * BOARD_WIDTH / 28;
+const int suggest3_x0 = 19 * BOARD_WIDTH / 28;
+const int suggest3_xf = 25 * BOARD_WIDTH / 28;
 
 // coordinates for each card in suggest/accuse
 const int accuse_y1 = 5 * SCREEN_HEIGHT / 30;
@@ -36,22 +37,22 @@ const int accuse_x6 = 18 * SCREEN_HEIGHT / 20;
 
 // coordinates for each board position
 // the board is generally symmetric so a lot of quantities can be derived
-const int board_start1 = 142;
-const int board_start2 = 316;
-const int board_start3 = 490;
+const int board_start1 = 66;
+const int board_start2 = 281;
+const int board_start3 = 502;
 
-const int room_width = 87;	// rooms are square
+const int room_width = 140;	// rooms are square
 const int player_width = room_width / 5;	// players are too
-const int hallway_width = 30;	// hallways are not
-const int hallway_length = room_width;	
+const int hallway_width = 60;	// hallways are not
+const int hallway_length = 75;	
 
 const int board_end1 = board_start1 + room_width;
 const int board_end2 = board_start2 + room_width;
 const int board_end3 = board_start3 + room_width;
 
-const int hall_start1 = board_start1 + hallway_width;
-const int hall_start2 = board_start2 + hallway_width;
-const int hall_start3 = board_start3 + hallway_width;
+const int hall_start1 = 98;
+const int hall_start2 = 320;
+const int hall_start3 = 552;
 
 const int hall_end1 = hall_start1 + hallway_width;
 const int hall_end2 = hall_start2 + hallway_width;
@@ -65,8 +66,9 @@ const int BANNER_HEIGHT =  92 * SCREEN_HEIGHT / 100;
 // common rendering rectangles
 
 SDL_Rect background_rect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
+SDL_Rect board_rect = {0, 0, BOARD_WIDTH, SCREEN_HEIGHT};
 SDL_Rect notification_rect = {
-	SCREEN_WIDTH / 10, 92 * SCREEN_HEIGHT / 100, 8 * SCREEN_WIDTH / 10, 6 * SCREEN_HEIGHT / 100
+	BOARD_WIDTH / 10, 92 * SCREEN_HEIGHT / 100, 8 * BOARD_WIDTH / 10, 6 * SCREEN_HEIGHT / 100
 };
 
 SDL_Rect suggest_rect1 = {suggest1_x0, suggest_y0, suggest1_xf - suggest1_x0, suggest_yf - suggest_y0};
@@ -205,7 +207,7 @@ void push_banner(string notification_text, SDL_Renderer* renderer,
 	tmp_surface = TTF_RenderText_Solid(blood_font, notification_text.c_str(), red);
 
 	SDL_Rect notif_rect = {
-		SCREEN_WIDTH / 2 - (tmp_surface->w) / 2, BANNER_HEIGHT, tmp_surface->w, tmp_surface->h
+		BOARD_WIDTH / 2 - (tmp_surface->w) / 2, BANNER_HEIGHT, tmp_surface->w, tmp_surface->h
 	};
 
 	pending_notifications->push(SDL_CreateTextureFromSurface(renderer, tmp_surface));
@@ -281,7 +283,7 @@ void load_all_media(SDL_Renderer* renderer){
 	// load all cards into map
 	for (int i = 1; i <= 21; i++){
 		SDL_Texture* temp_texture = NULL;
-		temp_texture = load_image("images/" + to_string(i) + ".png", renderer);
+		temp_texture = load_image("images/cards/" + to_string(i) + ".png", renderer);
 
 		card_image_map[i] = temp_texture;
 	}
@@ -289,7 +291,7 @@ void load_all_media(SDL_Renderer* renderer){
 	// load all icons into map
 	for (int i = 1; i <= 6; i++){
 		SDL_Texture* temp_texture = NULL;
-		temp_texture = load_image("images/" + to_string(i) + "_icon.png", renderer);
+		temp_texture = load_image("images/icons/" + to_string(i) + "_icon.png", renderer);
 
 		player_icon_map[i] = temp_texture;
 	}
@@ -416,7 +418,7 @@ void fill_location_map(){
  *	using a magic number or enum works as well, but this is easier
  */
 int handle_board_mouse(){
-	// can use SCREEN_WIDTH and SCREEN_HEIGHT if needed
+	// can use BOARD_WIDTH and SCREEN_HEIGHT if needed
 	int mouse_x = 0;
 	int mouse_y = 0;		// mouse coordinates
 	
@@ -427,28 +429,28 @@ int handle_board_mouse(){
 	// cout << "x, y = " << mouse_x << ", " << mouse_y << endl;	// for debugging purposes
 
 	// get actions
-	if ((mouse_x > 157) && (mouse_x < 287) && (mouse_y > 58) && (mouse_y < 91)){
-		result = 30;
-	}
-	else if ((mouse_x > 26) && (mouse_x < 157) && (mouse_y > 14) && (mouse_y < 48)){
-		result = 31;
-	}
-	else if ((mouse_x > 26) && (mouse_x < 157) && (mouse_y > 58) && (mouse_y < 91)){
-		result = 32;
-	}
-	else if ((mouse_x > 573) && (mouse_x < 705) && (mouse_y > 15) && (mouse_y < 48)){
-		result = 33;
-	}
-	else if ((mouse_x > 573) && (mouse_x < 705) && (mouse_y > 58) && (mouse_y < 91)){
-		result = 34;
-	}
-	else if ((mouse_x > 157) && (mouse_x < 287) && (mouse_y > 14) && (mouse_y < 48)){
-		result = 35;
-	}
+	// if ((mouse_x > 157) && (mouse_x < 287) && (mouse_y > 58) && (mouse_y < 91)){
+	// 	result = 30;
+	// }
+	// else if ((mouse_x > 26) && (mouse_x < 157) && (mouse_y > 14) && (mouse_y < 48)){
+	// 	result = 31;
+	// }
+	// else if ((mouse_x > 26) && (mouse_x < 157) && (mouse_y > 58) && (mouse_y < 91)){
+	// 	result = 32;
+	// }
+	// else if ((mouse_x > 573) && (mouse_x < 705) && (mouse_y > 15) && (mouse_y < 48)){
+	// 	result = 33;
+	// }
+	// else if ((mouse_x > 573) && (mouse_x < 705) && (mouse_y > 58) && (mouse_y < 91)){
+	// 	result = 34;
+	// }
+	// else if ((mouse_x > 157) && (mouse_x < 287) && (mouse_y > 14) && (mouse_y < 48)){
+	// 	result = 35;
+	// }
 
 	
 	// get rooms
-	else if ((mouse_x > board_start1) && (mouse_x < board_end1) 
+	if ((mouse_x > board_start1) && (mouse_x < board_end1) 
 			&& (mouse_y > board_start1) && (mouse_y < board_end1)){
 		result = 1;
 	}
@@ -548,6 +550,7 @@ int handle_board_mouse(){
 
 	// this will make it very quick to figure out what pixels to click 
 	// result = "(x, y) = (" + to_string(mouse_x) + ", " + to_string(mouse_y) + ")";
+	// cout << "(x, y) = (" + to_string(mouse_x) + ", " + to_string(mouse_y) + ")" << endl;
 
 
 	return result;
@@ -559,7 +562,7 @@ int handle_board_mouse(){
 // to avoid duplicate work, just return an int
 // and use the same positions for players and weapons
 int handle_suggest_mouse(){
-	// can use SCREEN_WIDTH and SCREEN_HEIGHT if needed
+	// can use BOARD_WIDTH and SCREEN_HEIGHT if needed
 	int mouse_x = 0;
 	int mouse_y = 0;		// mouse coordinates
 	
@@ -633,7 +636,7 @@ bool return_to_board(){
 
 	SDL_GetMouseState(&mouse_x, &mouse_y);
 
-	if ((mouse_y > 5 * SCREEN_HEIGHT / 6) && (mouse_x > 2 * SCREEN_WIDTH / 3)){
+	if ((mouse_y > 5 * SCREEN_HEIGHT / 6) && (mouse_x > 2 * BOARD_WIDTH / 3)){
 		return true;
 	}
 	

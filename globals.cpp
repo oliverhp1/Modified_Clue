@@ -4,9 +4,9 @@ using namespace std;
 
 
 bool game_started = false;
-int max_clients = 3;
+int max_clients = 2;
 
-Player players[3];
+Player players[2];
 
 
 

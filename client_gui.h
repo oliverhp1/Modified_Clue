@@ -40,7 +40,7 @@ extern bool in_room(int);
 
 // declarations for textures and other media
 
-extern const int SCREEN_WIDTH, SCREEN_HEIGHT;
+extern const int SCREEN_WIDTH, SCREEN_HEIGHT, BOARD_WIDTH;
 extern const int BANNER_HEIGHT;
 
 extern const int suggest_y0, suggest_yf;
