@@ -21,7 +21,7 @@
 
 #include <netinet/in.h>
 
-#define MAX_CLIENTS 2   // define in globals instead
+// #define MAX_CLIENTS 2   // define in globals instead
 #define STREAM_SIZE 1024
 
 
@@ -41,14 +41,15 @@ using namespace std;
  */
 class Server{
 	public:
-		// port, max pending connections, stream size  (max clients now in globals)
-		Server(int, int, int);	// int
+		// port, max pending connections, stream size, max clients
+		Server(int, int, int, int);	// int
 		// ~Server();
 
 		void initialize();	// get client connections; return # clients
 		int* get_socket_tracker();
 
 		string receive_communication(int);	// socket id
+		string receive_any_communication();
 
 		int get_n_clients();
 
@@ -57,12 +58,12 @@ class Server{
 
 
 	private:
-		int socket_tracker[MAX_CLIENTS];
+		int socket_tracker[6];
 		int port, listening_socket;
 
 		int stream_size;
 		int max_pending, address_length;
-		int n_clients;
+		int n_clients, max_clients;
 
 		// common communication messages to send to clients
 		static string connection_message, start_message, confirm_message;

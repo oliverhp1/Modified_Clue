@@ -35,15 +35,7 @@ void Player::set_player_id(int player_id){
 	this->player_id = player_id;
 
 	// initial location depends only on player_id
-	if (player_id == 0){
-		this->set_location(2);
-	}
-	else if (player_id == 1){
-		this->set_location(6);
-	}
-	else {
-		this->set_location(-1 * player_id - 1);
-	}
+	this->set_location(-1 * player_id - 1);
 
 	cout << "Player " << player_id << " initialized" << endl;
 }

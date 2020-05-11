@@ -28,6 +28,7 @@ int main(int argc, char *argv[]){
 	// for handling delimited incoming messages from server
 	int tmp_player, tmp_location, tmp_weapon;
 	vector<string> split_message;
+	vector<string> case_file;
 
 
 
@@ -44,6 +45,8 @@ int main(int argc, char *argv[]){
 
 
 	// get port and host from runtime args
+	// struct sockaddr_in serv_addr; 
+
 	if (argc < 3) {
        printf("Usage: %s hostname port\n", argv[0]);
        exit(1);
@@ -51,6 +54,7 @@ int main(int argc, char *argv[]){
 	int port = atoi(argv[2]);
 	struct hostent *server;
     server = gethostbyname(argv[1]);
+
 
     if (server == NULL) {
         cerr << "Undefined host, exiting...\n" << endl;
@@ -71,9 +75,29 @@ int main(int argc, char *argv[]){
 	
 	address.sin_family = AF_INET;
 	address.sin_port = htons(port);
-	address.sin_addr.s_addr = INADDR_ANY;	// may need to get this from the server, i.e. server->h_addr
+	// address.sin_addr.s_addr = server->h_addr	//  INADDR_ANY;	// may need to get this from the server, i.e. server->h_addr
 	address_length = sizeof(address);
 
+	// cout << server->h_addr << endl;
+
+	tmp = argv[1];
+
+
+	// IMPORTANT: if connecting from anywhere other than localhost,
+	// we need to bind the ip address specified in the cli args
+	if (tmp.compare("localhost") != 0){
+    	if(inet_pton(AF_INET, argv[1], &address.sin_addr)<=0){ 
+	        printf("\nInvalid address/Address not supported \n"); 
+	        return -1;
+	    } 
+    }
+	
+   
+ //    if (connect(client_socket, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) 
+ //    { 
+ //        printf("\nConnection Failed \n"); 
+ //        return -1; 
+    // } 
 
 	// attempt connection to server socket
 	client_id = connect(client_socket, (struct sockaddr*) &address, address_length);
@@ -102,6 +126,7 @@ int main(int argc, char *argv[]){
 
     // attempt to start the game 
     bool start = false;
+
     while (!start){
     	// clear buffer
     	memset(buffer, 0, 255);
@@ -175,11 +200,12 @@ int main(int argc, char *argv[]){
 	}
 
 	// load clue images
-	load_all_media(renderer);
+	load_all_media(renderer, player_id);
 
 	// prepare to render notifications
 	queue< SDL_Texture* > pending_notifications;
 	queue<SDL_Rect> pending_rect;
+
 
 	SDL_Texture* current_notif = NULL;
 	SDL_Rect* current_notif_rect = NULL;
@@ -207,13 +233,25 @@ int main(int argc, char *argv[]){
 	string notification_text;
 	
 	int action_player, incoming_stream;
-	bool turn_end = false;
-	bool done = false;
-	bool maintain = false;
+	bool turn_end, done, maintain;
+	turn_end = done = maintain = false;
+	
 
 
 	// need to get our hand
+	// this will only happen once all players connect
 	while (!done){
+		// while waiting, render a staging screen
+		SDL_RenderClear(renderer);
+		SDL_RenderCopy(renderer, staging_screen, NULL, &background_rect);
+		SDL_RenderPresent(renderer);
+
+		while (SDL_PollEvent(&e)){	// need this to maintain the image
+	        if (e.type == SDL_QUIT){
+	            exit(1);
+	        }
+	    }
+
 		action = ping_server(
 			&server_set, max_connection, client_socket, quick
 		);
@@ -230,12 +268,24 @@ int main(int argc, char *argv[]){
 
 			done = true;
 		}
+
+
 	}
 
 
 
 	bool win = false;
 	done = false;
+	int iteration;
+
+	// for rendering the correct buttons
+	bool active_buttons[] = {false, false, false, false, false, false};
+	bool deactivated = false;
+	bool just_accused = false;
+	bool retrieved = false;		// sometimes server takes a while to get back to us
+		// so iterate until we get the expected message
+	
+
 	// this is the main loop for each client
 	// different functionality depending on whether it is your turn
 	// we also render every iteration, since the game state changes
@@ -248,9 +298,20 @@ int main(int argc, char *argv[]){
 		SDL_RenderClear(renderer);
 		
 		SDL_RenderCopy(renderer, board, NULL, &background_rect);
+		SDL_RenderCopy(renderer, player_icon_map[player_id + 1], NULL, &icon_rect);
+		SDL_RenderCopy(renderer, you_are_text, NULL, &you_are_rect);
+
+		render_all_buttons(renderer);
+
+		if (deactivated){
+			SDL_RenderCopy(renderer, lost_indicator, NULL, &indicator_rect);
+		}
+
 		render_all_players(player_locations, renderer);
 
 		// TODO: abstract this. it's a bit tricky since we have the queue defined locally. can pass in a pointer
+		// also tricky since in some cases we want to skip the rest of the iteration
+		// perhaps return a bool indicating whether we want to do that?
 		// 	render_notifications()		
 		if (current_notif == NULL){
 			if (!pending_notifications.empty()){
@@ -295,7 +356,7 @@ int main(int argc, char *argv[]){
 		}
 		else {
 			// first render background, then render current notification
-			SDL_RenderCopy(renderer, notify_background, NULL, &notification_rect);
+			SDL_RenderCopy(renderer, notify_background, NULL, &banner_rect);
 			SDL_RenderCopy(renderer, current_notif, NULL, current_notif_rect);
 			notif_iteration++;
 
@@ -313,6 +374,8 @@ int main(int argc, char *argv[]){
 		action = ping_server(
 			&server_set, max_connection, client_socket, quick
 		);
+
+		if (just_accused) cout << "hello? " << action << endl;
 
 		// we will have different conditionals for your turn vs 
 		// other actions like getting suggested 
@@ -339,6 +402,8 @@ int main(int argc, char *argv[]){
 
 			cout << "first action: " << action << endl;
 
+			
+
 			turn_end = false;
 			// iterate until turn has concluded
 			while (!turn_end){
@@ -347,12 +412,20 @@ int main(int argc, char *argv[]){
 				// and if it returns invalid, we will keep sending outputs
 				SDL_RenderClear(renderer);
 				SDL_RenderCopy(renderer, board, NULL, &background_rect);
+				SDL_RenderCopy(renderer, turn_active, NULL, &indicator_rect);
+				SDL_RenderCopy(renderer, player_icon_map[player_id + 1], NULL, &icon_rect);
+				SDL_RenderCopy(renderer, you_are_text, NULL, &you_are_rect);
 				render_all_players(player_locations, renderer);
 				
 				// also render board highlighting here!
 					// use output of mouse_output. and stick renderpresent at the end of the while loop
 
+				// set which buttons are currently active
+				update_active_buttons(action);
+				render_all_buttons(renderer);
+
 				SDL_RenderPresent(renderer);
+
 
 
 				// now poll for event
@@ -393,9 +466,15 @@ int main(int argc, char *argv[]){
 						    // after we write to server, expect a response
 						    // update action according to message from server
 						    // if "moving", it was forced. if "request_location", handle next iteration
-						    action = ping_server(
-								&server_set, max_connection, client_socket, quick
-							);
+						    retrieved = false;
+
+						    while (!retrieved){
+						    	action = ping_server(
+									&server_set, max_connection, client_socket, quick
+								);
+								if ((action.length() > 7)) retrieved = true;
+						    }
+						    
 
 							if (action.substr(0, 7).compare("Moving:") == 0){
 								// we are moving
@@ -409,9 +488,19 @@ int main(int argc, char *argv[]){
 
 								// need to read additional message to clear stream
 								// if (usleep(20000) == -1) cout << "failed to pause/clear buffer";
-								action = ping_server(
-									&server_set, max_connection, client_socket, quick
-								);
+								retrieved = false;
+
+								cout << "what the" << endl;
+
+							    while (!retrieved){
+							    	action = ping_server(
+										&server_set, max_connection, client_socket, quick
+									);
+									if ((action.length() > 7)) retrieved = true;
+							    }
+
+							    cout << "heck: " << retrieved << endl;
+								
 							}
 			        	}
 			        	else if (mouse_output.compare(suggest_str) == 0){
@@ -422,9 +511,15 @@ int main(int argc, char *argv[]){
 						    }
 
 						    // and get response
-						    action = ping_server(
-								&server_set, max_connection, client_socket, quick
-							);
+						    retrieved = false;
+						    while (!retrieved){
+						    	action = ping_server(
+									&server_set, max_connection, client_socket, quick
+								);
+								if ((action.length() > 7)) retrieved = true;
+
+						    }
+						    cout << "got action: " << endl;
 
 							if (action.compare(request_player) == 0){
 								// kick off suggestion method here
@@ -433,9 +528,13 @@ int main(int argc, char *argv[]){
 								);
 
 								// get subsequent action
-								action = ping_server(
-									&server_set, max_connection, client_socket, quick
-								);
+								retrieved = false;
+							    while (!retrieved){
+							    	action = ping_server(
+										&server_set, max_connection, client_socket, quick
+									);
+									if ((action.length() > 7)) retrieved = true;
+							    }
 
 							}
 			        	}
@@ -447,23 +546,40 @@ int main(int argc, char *argv[]){
 						    }
 
 						    // and get response
-						    action = ping_server(
-								&server_set, max_connection, client_socket, quick
-							);
+						    retrieved = false;
+						    while (!retrieved){
+						    	action = ping_server(
+									&server_set, max_connection, client_socket, quick
+								);
+								if ((action.length() > 7)) retrieved = true;
+						    }
 
 							if (action.compare(request_player) == 0){
 								// kick off suggestion method here
 								win = client_accusation(
 									renderer, &server_set, max_connection, client_socket, quick,
-									&pending_notifications, &pending_rect
+									&pending_notifications, &pending_rect, &case_file
 								);
+								
+								// if you win, use this to determine that
+								// if you lose, you are deactivated for the rest of the game
+								deactivated = true;
+								just_accused = true;
+								iteration = 1;
 
-								// get subsequent action
-								action = ping_server(
-									&server_set, max_connection, client_socket, quick
-								);
+								// // get subsequent action
+								// actually, handle this next iteration!
+								// retrieved = false;
+							 //    while (!retrieved){
+							 //    	action = ping_server(
+								// 		&server_set, max_connection, client_socket, quick
+								// 	);
+								// 	if ((action.length() > 7)) retrieved = true;
+							 //    }
 
 								turn_end = true;	// turn ends no matter what happens
+
+
 
 							}
 			        	}
@@ -475,9 +591,13 @@ int main(int argc, char *argv[]){
 						    }
 
 						    // get response from server
-						    action = ping_server(
-								&server_set, max_connection, client_socket, quick
-							);
+						    retrieved = false;
+						    while (!retrieved){
+						    	action = ping_server(
+									&server_set, max_connection, client_socket, quick
+								);
+								if ((action.length() > 7)) retrieved = true;
+						    }
 							if (action.compare(turn_end_str) == 0) turn_end = true;
 						    
 			        	}
@@ -491,9 +611,13 @@ int main(int argc, char *argv[]){
 						    }
 
 						    // and get response
-						    action = ping_server(
-								&server_set, max_connection, client_socket, quick
-							);
+						    retrieved = false;
+						    while (!retrieved){
+						    	action = ping_server(
+									&server_set, max_connection, client_socket, quick
+								);
+								if ((action.length() > 7)) retrieved = true;
+						    }
 
 						    if (action.substr(0, 7).compare("Moving:") == 0){
 								// we are moving
@@ -506,9 +630,13 @@ int main(int argc, char *argv[]){
 								player_locations[player_id] = tmp_location;
 
 								// need to read additional message to clear stream
-								action = ping_server(
-									&server_set, max_connection, client_socket, quick
-								);
+								retrieved = false;
+								while (!retrieved){
+							    	action = ping_server(
+										&server_set, max_connection, client_socket, quick
+									);
+									if ((action.length() > 7)) retrieved = true;
+							    }
 							}
 
 
@@ -519,6 +647,9 @@ int main(int argc, char *argv[]){
 
 			// each turn ends when we get here
 			cout << "turn ending" << endl;
+
+			// deactivate all buttons
+			update_active_buttons("deactivate");
 		}	
 
 		// here, we need to handle logic that happens when it's not your turn
@@ -549,11 +680,14 @@ int main(int argc, char *argv[]){
 		}
 		else if (action.substr(0, 5).compare("Show:") == 0){
     		// being forced to show a card; iterate until we get a valid option
-    		// no need for banner here, the suggest banner will cover it
+    		// the suggest banner (above) will have been pushed before we get here
+    		// we can show it while choosing a card
     		done = false;
 
     		while (!done){
-    			card_to_show = getting_suggested(action, renderer);
+    			card_to_show = getting_suggested(action, renderer, current_notif, current_notif_rect);
+    			current_notif = NULL;
+    			current_notif_rect = NULL;
 
 				cout << "card to show; sending to server: " << card_to_show << endl;
 
@@ -566,6 +700,8 @@ int main(int argc, char *argv[]){
 			    response = ping_server(
 					&server_set, max_connection, client_socket, quick
 				);
+
+				cout << "post-show message: " << response << endl;
 
 				if (response.compare(invalid_input) != 0) done = true;
     		}
@@ -602,7 +738,7 @@ int main(int argc, char *argv[]){
 		}
 		else if ((action.length() > 11) && action.substr(0, 11).compare("Accusation:") == 0){
 			// someone made an accusation
-			tmp = action.substr(15);
+			tmp = action.substr(11);
 			boost::split(
 				split_message, tmp, is_semicolon
 			);
@@ -618,21 +754,35 @@ int main(int argc, char *argv[]){
 			maintain = true;
 		}
 		else if ((action.length() > 10) && action.substr(0, 10).compare("Case file:") == 0){
-			// someone else wins. get case file
+			// someone wins. get case file
 			tmp = action.substr(10);
 			boost::split(
-				split_message, tmp, is_semicolon
+				case_file, tmp, is_semicolon
 			);
 			quit = true;
+			if (just_accused){
+				win = true;	// if this happened right after you accused, you won
+			}
+			else {
+				win = false;
+			}
 		}
-		else if (action.compare(winner_message) == 0){
+		else if ((action.length() > 8) && (action.substr(0, 8).compare("You win.") == 0)){
 			// if you win when it's not your turn, it means you're the last one standing
+			// get the case file
+			tmp = action.substr(8);
+			boost::split(
+				case_file, tmp, is_semicolon
+			);
+
 			quit = true;
 			win = true;
 		}
+		else if ((action.length() > 10) && (action.substr(0, 10).compare("Game Over:") == 0)){
+			quit = true;
+			win = false;
+		}
 
-
-		
 
 
 
@@ -664,22 +814,63 @@ int main(int argc, char *argv[]){
 	    
 	    // each iteration of the main client game loop
 	    // cout << "one iteration" << endl;	// for debugging
+	    if (iteration >= 2){
+	    	just_accused = false;
+	    }
+	    else{
+	    	iteration++;
+	    }
+	    // just_accused = false;
+	    // cout << action << endl;
 	    
 	}
 
 	
 
 	// at this point, game has ended.
+	// display the final screen
 
-	if (win){
-		// render winning screen (also render case file)
-		cout << "you win" << endl;
+	quit = false;
+	response = "quit";
+
+	cout << case_file[0] << ", " << case_file[1] << ", "  << case_file[2] << endl;
+
+	while (!quit){
+		SDL_RenderClear(renderer);
+		SDL_RenderCopy(renderer, final_screen, NULL, &background_rect);
+
+		// render case file
+		SDL_RenderCopy(renderer, card_image_map[reverse_card_map[case_file[0]]], NULL, &case_file_rect1);
+		SDL_RenderCopy(renderer, card_image_map[reverse_card_map[case_file[1]]], NULL, &case_file_rect2);
+		SDL_RenderCopy(renderer, card_image_map[reverse_card_map[case_file[2]]], NULL, &case_file_rect3);
+		
+		
+		if (win){
+			// render winning screen (also render case file)
+			SDL_RenderCopy(renderer, final_win, NULL, &final_rect);
+		}
+		else {
+			// render losing screen, with case file
+			SDL_RenderCopy(renderer, final_lose, NULL, &final_rect);
+		}
+
+		SDL_RenderPresent(renderer);	// push to screen
+
+		while (SDL_PollEvent(&e)){
+	        if (e.type == SDL_QUIT){
+	        	// send message to server to shut down
+	            quit = true;
+	            out = write(client_socket, response.c_str(), response.size() + 2);
+	        }
+	        else if ((e.type == SDL_MOUSEBUTTONDOWN) && (e.button.button == SDL_BUTTON_LEFT)){
+	        	// if we want to do additional handling, e.g. quit or play again
+	        }	        
+	    }
 	}
-	else {
-		// render losing screen, with case file
-		// maintain the notepad
-		cout << "you lose" << endl;
-	}
+
+	
+
+	
 
     // clear memory used by SDL
 	SDL_DestroyWindow( window );

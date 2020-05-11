@@ -68,6 +68,7 @@ void client_suggestion(SDL_Renderer* renderer, fd_set* server_set,
 	bool get_weapon = false;
 	bool get_response = false;
 	bool confirming = false;
+	bool retrieved = false;
 
 	// iterate until all suggestion logic has concluded
 	while (get_player || get_weapon){
@@ -77,11 +78,13 @@ void client_suggestion(SDL_Renderer* renderer, fd_set* server_set,
 
 		// render relevant cards
 		if (get_player){
+			SDL_RenderCopy(renderer, get_player_text, NULL, &get_player_rect);
 			for (int i = 1; i <= 6; i++){
 				SDL_RenderCopy(renderer, card_image_map[i], NULL, &accuse_rect_map[i]);	
 			}
 		}
 		else if (get_weapon){
+			SDL_RenderCopy(renderer, get_weapon_text, NULL, &get_weapon_rect);
 			for (int i = 7; i <= 12; i++){
 				SDL_RenderCopy(renderer, card_image_map[i], NULL, &accuse_rect_map[i - 6]);	
 			}
@@ -127,27 +130,33 @@ void client_suggestion(SDL_Renderer* renderer, fd_set* server_set,
 			        exit(1);
 			    }
 
-			    // after we write to server, expect a response
+			    // after we write to server, expect a response only if we're getting player
 			    // update action according to message from server
-			    action = ping_server(
-					server_set, max_connection, client_socket, quick
-				);
+			    if (get_player){
+			    	retrieved = false;
+				    while (!retrieved){
+				    	action = ping_server(
+							server_set, max_connection, client_socket, quick
+						);
+						if (action.length() > 7) retrieved = true;
+				    }
+				    if (action.compare(request_weapon) == 0){
+						get_player = false;
+						get_weapon = true;
 
-				if (action.compare(request_weapon) == 0){
-					get_player = false;
-					get_weapon = true;
-
-					// move suggested player to current location
-					player_locations[mouse_output - 1] = player_locations[player_id];
-				}
-				else if (action.compare(invalid_input) == 0){
-					// do nothing
-				}
-				else {
-					// getting suggestion response from server
-					cout << "GETTING SUGGESTION RESULT FROM SERVER" << endl;
-					get_weapon = false;
-				}
+						// move suggested player to current location
+						player_locations[mouse_output - 1] = player_locations[player_id];
+					}
+			    }
+			    // if we were already getting weapon, wait a bit, then check if it was invalid
+			    else {
+			    	if (usleep(50000) == -1) cout << "failed to pause/clear buffer";
+			    	if (action.compare(invalid_input) != 0){
+						// if anything other than invalid string, it was a success
+						cout << "GETTING SUGGESTION RESULT FROM SERVER" << endl;
+						get_weapon = false;
+					}
+			    }
 	        	
 	        }	        
 	    }
@@ -187,10 +196,11 @@ void confirm_suggestion(SDL_Renderer* renderer, fd_set* server_set,
 		// render background
 		SDL_RenderClear(renderer);
 		SDL_RenderCopy(renderer, suggest_background, NULL, &background_rect);
+		SDL_RenderCopy(renderer, waiting_text, NULL, &waiting_rect);
 
 		// render notification if necessary
 		if (temp_notif != NULL){
-			SDL_RenderCopy(renderer, notify_background, NULL, &notification_rect);
+			SDL_RenderCopy(renderer, notify_background, NULL, &banner_rect);
 			SDL_RenderCopy(renderer, temp_notif, NULL, &temp_notif_rect);
 			SDL_RenderPresent(renderer);
 
@@ -210,10 +220,14 @@ void confirm_suggestion(SDL_Renderer* renderer, fd_set* server_set,
 				continue;	// don't get any other messages until done
 			}
 		}
+		else {
+			SDL_RenderPresent(renderer);
+		}
 
 		if (get_response){
     		// need to get a sequence of numbers indicating who showed us what card
     		// or if they had none of the cards
+    		// this will take a while since we need to wait for another player to make a decision
 			action = ping_server(
 				server_set, max_connection, client_socket, quick
 			);
@@ -227,7 +241,7 @@ void confirm_suggestion(SDL_Renderer* renderer, fd_set* server_set,
 				tmp_surface = TTF_RenderText_Solid(blood_font, notification_text.c_str(), red);
 
 				temp_notif_rect = (SDL_Rect) {
-					SCREEN_WIDTH / 2 - (tmp_surface->w) / 2, BANNER_HEIGHT, tmp_surface->w, tmp_surface->h
+					BOARD_WIDTH / 2 - (tmp_surface->w) / 2, notif_text_y, tmp_surface->w, tmp_surface->h
 				};
 
 				temp_notif = SDL_CreateTextureFromSurface(renderer, tmp_surface);
@@ -252,7 +266,7 @@ void confirm_suggestion(SDL_Renderer* renderer, fd_set* server_set,
 				tmp_surface = TTF_RenderText_Solid(blood_font, notification_text.c_str(), red);
 
 				temp_notif_rect = (SDL_Rect) {
-					SCREEN_WIDTH / 2 - (tmp_surface->w) / 2, BANNER_HEIGHT, tmp_surface->w, tmp_surface->h
+					BOARD_WIDTH / 2 - (tmp_surface->w) / 2, notif_text_y, tmp_surface->w, tmp_surface->h
 				};
 
 				temp_notif = SDL_CreateTextureFromSurface(renderer, tmp_surface);
@@ -292,9 +306,12 @@ void confirm_suggestion(SDL_Renderer* renderer, fd_set* server_set,
 
 
 // return index of the 3 cards you want to show
-string getting_suggested(string action, SDL_Renderer* renderer){
+string getting_suggested(string action, SDL_Renderer* renderer, 
+		SDL_Texture* temp_notif, SDL_Rect* temp_notif_rect){
+
 	string all_card_str = action.substr(5);
 	vector<string> show_cards;
+
 
 	SDL_Event e;
 	int n_options, card_to_render, mouse_output;
@@ -317,8 +334,10 @@ string getting_suggested(string action, SDL_Renderer* renderer){
 	bool done = false;
 	while (!done){
 		// render everything every loop
-		SDL_RenderClear(renderer);		
+		SDL_RenderClear(renderer);
 		SDL_RenderCopy(renderer, suggest_background, NULL, &background_rect);
+		SDL_RenderCopy(renderer, choose_card_text, NULL, &choose_card_rect);
+		SDL_RenderCopy(renderer, temp_notif, NULL, temp_notif_rect);
 		for (int i = 0; i < n_options; i++){
 			// render all matching cards
 			// get int corresponding to card_image_map key
@@ -353,7 +372,8 @@ string getting_suggested(string action, SDL_Renderer* renderer){
 // return true of accusation is correct
 bool client_accusation(SDL_Renderer* renderer, fd_set* server_set, 
 	int max_connection, int client_socket, timeval quick,
-	queue< SDL_Texture* > *pending_notifications, queue<SDL_Rect> *pending_rect){
+	queue< SDL_Texture* > *pending_notifications, queue<SDL_Rect> *pending_rect,
+	vector<string> *case_file){
 
 	SDL_Event e;
 	string action, response;
@@ -366,6 +386,7 @@ bool client_accusation(SDL_Renderer* renderer, fd_set* server_set,
 	bool get_location = false;
 
 	bool correct = false;
+	bool retrieved = false;
 
 	// iterate until all accusation logic has concluded
 	while (get_player || get_weapon || get_location){
@@ -374,16 +395,19 @@ bool client_accusation(SDL_Renderer* renderer, fd_set* server_set,
 
 		// render relevant cards
 		if (get_player){
+			SDL_RenderCopy(renderer, get_player_text, NULL, &get_player_rect);
 			for (int i = 1; i <= 6; i++){
 				SDL_RenderCopy(renderer, card_image_map[i], NULL, &accuse_rect_map[i]);	
 			}
 		}
 		else if (get_weapon){
+			SDL_RenderCopy(renderer, get_weapon_text, NULL, &get_weapon_rect);
 			for (int i = 7; i <= 12; i++){
 				SDL_RenderCopy(renderer, card_image_map[i], NULL, &accuse_rect_map[i - 6]);	
 			}
 		}
 		else if (get_location){
+			SDL_RenderCopy(renderer, get_location_text, NULL, &get_location_rect);
 			for (int i = 13; i <= 21; i++){
 				SDL_RenderCopy(renderer, card_image_map[i], NULL, &accuse_rect_map[i - 12]);
 			}
@@ -439,9 +463,13 @@ bool client_accusation(SDL_Renderer* renderer, fd_set* server_set,
 
 			    // after we write to server, expect a response
 			    // update action according to message from server
-			    action = ping_server(
-					server_set, max_connection, client_socket, quick
-				);
+			    retrieved = false;
+			    while (!retrieved){
+			    	action = ping_server(
+						server_set, max_connection, client_socket, quick
+					);
+					if ((action.length() > 7)) retrieved = true;
+			    }
 
 				if (action.compare(request_weapon) == 0){
 					get_player = false;
@@ -464,7 +492,7 @@ bool client_accusation(SDL_Renderer* renderer, fd_set* server_set,
 	    }
 	}
 
-	correct = validate_accusation(action, renderer, pending_notifications, pending_rect);
+	correct = validate_accusation(action, renderer, pending_notifications, pending_rect, case_file);
 
 	// done; return result
 	return correct;
@@ -475,10 +503,11 @@ bool client_accusation(SDL_Renderer* renderer, fd_set* server_set,
 
 // given string output from server, decide if accusation was correct
 bool validate_accusation(string action, SDL_Renderer* renderer, 
-		queue< SDL_Texture* > *pending_notifications, queue<SDL_Rect> *pending_rect){
+		queue< SDL_Texture* > *pending_notifications, queue<SDL_Rect> *pending_rect,
+		vector<string> *case_file){
 	// we are done deciding on accusation.  need to validate result from server
 	string case_file_str, temp_text;
-	vector<string> case_file;
+	vector<string> tmp_case_file;
 
 	bool correct = false;
 
@@ -490,12 +519,12 @@ bool validate_accusation(string action, SDL_Renderer* renderer,
 		// we should do something that persists for the rest of the game state
 		case_file_str = action.substr(17);
 		boost::split(
-			case_file, case_file_str, is_semicolon
+			tmp_case_file, case_file_str, is_semicolon
 		);
 
 		// if wrong, notification banner
-		temp_text = "Incorrect. Case file: " + case_file[0] + ", "  
-			 + case_file[1] + ", " + case_file[2];
+		temp_text = "Incorrect. Case file: " + tmp_case_file[0] + ", "  
+			 + tmp_case_file[1] + ", " + tmp_case_file[2];
 
 
 		cout << temp_text << endl;
@@ -507,11 +536,11 @@ bool validate_accusation(string action, SDL_Renderer* renderer,
 		// successful accusation
 		case_file_str = action.substr(10);
 		boost::split(
-			case_file, case_file_str, is_semicolon
+			tmp_case_file, case_file_str, is_semicolon
 		);
 
-		cout << "Correct: you win" << case_file[0] << ", "  
-			 << case_file[1] << ", " << case_file[2] << endl;
+		cout << "Correct: you win" << tmp_case_file[0] << ", "  
+			 << tmp_case_file[1] << ", " << tmp_case_file[2] << endl;
 
 		correct = true;
 		// at this point, we know whether we won or lost
@@ -519,6 +548,10 @@ bool validate_accusation(string action, SDL_Renderer* renderer,
 	}
 	else {
 		cout << "client_accusation- unexpected message from server: " << action << endl;
+	}
+
+	for (int i = 0; i < 3; i++){
+		case_file->push_back(tmp_case_file[i]);
 	}
 
 	return correct;

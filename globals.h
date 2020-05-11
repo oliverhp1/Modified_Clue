@@ -55,7 +55,7 @@ extern string yes_no[];
 // helper strings for communication
 extern string accuse_location, request_location, request_player, request_weapon;
 
-extern string navigate_stay_str, suggest_accuse_str, accuse_pass_str, winner_message;
+extern string navigate_stay_str, suggest_accuse_str, accuse_pass_str;	//, winner_message;
 extern string start_str, navigate_accuse_str, force_stay_str, force_move;
 extern string check_hand, check_state, turn_end_str, end_turn_str, deactivate_str;
 

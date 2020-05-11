@@ -61,6 +61,7 @@ class GamePlay {
         static int case_file[];
         static string case_file_string, wrong_accusation;
         static void populate_case_file(int, int, int);
+        static string get_win_message();
 
 
         // for determining whether player is in a room

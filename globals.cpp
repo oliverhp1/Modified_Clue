@@ -4,9 +4,9 @@ using namespace std;
 
 
 bool game_started = false;
-int max_clients = 2;
+int max_clients;
 
-Player players[2];
+Player players[6];
 
 
 
@@ -159,13 +159,14 @@ void populate_location_map(){
 	location_map[-5] = "Starting Block";
 	location_map[-6] = "Starting Block";
 
-	location_map[30] = show_hand_str;
-	location_map[31] = navigate_str;
-	location_map[32] = suggest_str;
-	location_map[33] = accuse_str;
-	location_map[34] = pass_str;
-	location_map[35] = stay_str;
+	location_map[30] = navigate_str;
+	location_map[31] = suggest_str;
+	location_map[32] = stay_str;
+	location_map[33] = pass_str;
+	location_map[34] = accuse_str;
+	location_map[35] = show_hand_str;
 	location_map[36] = empty_space;
+
 
 
 	// this is horrible, but unfortunately map iteration only 
@@ -202,12 +203,12 @@ void populate_card_map(){
 	card_map[2] = "Prof. Plum";	
 	card_map[3] = "Mrs. Peacock";
 	card_map[4] = "Mr. Green";
-	card_map[5] = "Mrs. White";
+	card_map[5] = "Dr. Orchid";
 	card_map[6] = "Col. Mustard";
 
 	card_map[7] = "Rope";
 	card_map[8] = "Lead Pipe";
-	card_map[9] = "Knife";
+	card_map[9] = "Dagger";
 	card_map[10] = "Wrench";
 	card_map[11] = "Candlestick";
 	card_map[12] = "Revolver";
@@ -226,12 +227,12 @@ void populate_card_map(){
 	reverse_card_map["Prof. Plum"] = 2;
 	reverse_card_map["Mrs. Peacock"] = 3;
 	reverse_card_map["Mr. Green"] = 4;
-	reverse_card_map["Mrs. White"] = 5;
+	reverse_card_map["Dr. Orchid"] = 5;
 	reverse_card_map["Col. Mustard"] = 6;
 
 	reverse_card_map["Rope"] = 7;
 	reverse_card_map["Lead Pipe"] = 8;
-	reverse_card_map["Knife"] = 9;
+	reverse_card_map["Dagger"] = 9;
 	reverse_card_map["Wrench"] = 10;
 	reverse_card_map["Candlestick"] = 11;
 	reverse_card_map["Revolver"] = 12;
@@ -272,7 +273,7 @@ bool is_semicolon(char c){
 
 // strings used for cli communication
 string request_location = "Where would you like to move?";
-string request_player = "Who do you think committed the crime?";
+string request_player = "Who committed the crime?";
 string accuse_location = "In what room?";
 string request_weapon = "With what weapon?";
 
@@ -296,7 +297,7 @@ string no_show_individual = "You do not have any of the suggested cards.";
 string nobody_showed = "Nobody showed.";
 string end_turn_str = "Ending.";
 string deactivate_str = "Incorrect; deactivating.";
-string winner_message = "You win!";
+// string winner_message = "You win!";
 
 // for validating inputs (probably won't need this with a GUI)
 // these terminating strings are not great, but it's impossible to
@@ -315,11 +316,11 @@ string scarlet = "Miss Scarlet";
 string plum = "Prof. Plum";
 string peacock = "Mrs. Peacock";
 string green = "Mr. Green";
-string white = "Mrs. White";
+string white = "Dr. Orchid";
 string mustard = "Col. Mustard";
 string rope = "Rope";
 string leadpipe = "Lead Pipe";
-string knife = "Knife";
+string knife = "Dagger";
 string wrench = "Wrench";
 string candlestick = "Candlestick";
 string revolver = "Revolver";

@@ -10,10 +10,10 @@ using namespace std;
  	- max_pending (max pending connections on listening socket)
  	- stream_size (size of stream to get from connections)
  */
-Server::Server(int port, int max_pending, int stream_size){		//int max_clients, 
+Server::Server(int port, int max_pending, int stream_size, int max_clients){
 	// initialize relevant server variables
 	this->port = port;
-	// this->max_clients = max_clients;
+	this->max_clients = max_clients;
 	this->max_pending = max_pending;
 	this->stream_size = stream_size;
 	this->n_clients = 0;
@@ -160,6 +160,72 @@ string Server::receive_communication(int socket_id){
 						string output(buffer);
 						return output;
 					}
+				}
+			}
+		}
+	}
+
+	cerr << "DEBUG: loop broken in Server.receive_communication" << endl;
+	exit(1);
+}
+
+// this will receive a char buffer from socket_id
+// if we receive messages from other sockets, send back warning message
+string Server::receive_any_communication(){
+	int temp_socket;
+	bool received = false;
+	int max_connection, incoming_stream;
+	char buffer[STREAM_SIZE];
+
+	while (!received){
+		// if error, make copy of active_sockets first
+		// reset each time we loop over clients, otherwise infinite loop
+		// is possible
+		max_connection = reset(&active_sockets);
+		if (listening_socket > max_connection){
+			max_connection = listening_socket;
+		}
+
+		// listen for an action on any socket
+		int incoming_action = select(
+			max_connection + 1, &active_sockets, nullptr, nullptr, nullptr
+		);
+
+		// when received, check where it came from
+		for (int i = 0; i < n_clients; i++){
+			// check for messages from active clients
+			temp_socket = socket_tracker[i];
+
+			if (FD_ISSET(temp_socket, &active_sockets)){
+			
+				// got desired message
+				incoming_stream = read(temp_socket, buffer, stream_size);
+
+				if (incoming_stream == 0){
+					// temp_socket is no longer connected
+					getpeername(
+						temp_socket, 
+						(struct sockaddr*)&address,  
+						(socklen_t*)&address_length
+					);
+					cout << "Client disconnected: " 
+						 << ntohs(address.sin_port);
+
+					close(temp_socket);
+					socket_tracker[i] = 0;
+					FD_CLR(temp_socket, &active_sockets);
+				}
+				else {
+					// handle the message
+					// terminate char array for string handling
+					// the last 2 characters will be newline, ?
+					// so terminate before that
+					// cout << "incoming stream: " << incoming_stream << endl;
+					buffer[incoming_stream - 2] = '\0';	 
+					received = true;	// not really necessary
+
+					string output(buffer);
+					return output;
 				}
 			}
 		}

@@ -18,11 +18,13 @@ using namespace std;
  */
 int main(int argc, char *argv[]){
 	// first get port from runtime args
-	if (argc < 2) {
-       printf("Usage: %s [port]\n", argv[0]);
+	if (argc < 3) {
+       printf("Usage: %s [port] [n_players]\n", argv[0]);
        exit(1);
     }
 	int port = atoi(argv[1]);
+	istringstream(argv[2]) >> max_clients;
+	// max_clients = 3;
     
 	// initialize location and card maps
 	// ideally you'd just initialize them when defined, but the c++ compilers 
@@ -34,8 +36,9 @@ int main(int argc, char *argv[]){
 
 	// start up server and get connections
 	int n_clients, tmp_id;
+	
 
-	Server server(port, MAX_PENDING_CONN, STREAM_SIZE);
+	Server server(port, MAX_PENDING_CONN, STREAM_SIZE, max_clients);
 	server.initialize();	// all clients connect here
 
 	n_clients = server.get_n_clients();
@@ -200,8 +203,11 @@ int main(int argc, char *argv[]){
 
 	// broadcast to all 
 	string loser_message = "Game Over: " 
-		+ card_map[winning_player + 1] + " Wins.\r\n";
+		+ card_map[winning_player + 1] + " Wins.";
 	cout << loser_message << endl;
+
+	string winner_message = GamePlay::get_win_message();
+	sleep(3);
 
 	for (int i = 0; i < n_clients; i++){
 		if (winner[i]){
@@ -209,6 +215,20 @@ int main(int argc, char *argv[]){
 		}
 		else {
 			send(socket_tracker[i], loser_message.c_str(), loser_message.size(), 0);
+		}
+	}
+
+
+
+
+
+	bool final_quit = false;
+	string final_message;
+
+	while (!final_quit){
+		final_message = server.receive_any_communication();
+		if (final_message.compare("quit") == 0){
+			final_quit = true;
 		}
 	}
 	
