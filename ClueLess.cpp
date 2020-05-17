@@ -10,6 +10,13 @@ using namespace std;
 
 
 
+// struct RNG {
+//     int operator() (int n) {
+//         return rand() / (1.0 + RAND_MAX) * n;
+//     }
+// };
+
+
 /** This drives the remainder of the code in our project.
  * It will instantiate a server object, accept all connections,
  * instantiate all player objects, then enter the main game loop
@@ -88,25 +95,32 @@ int main(int argc, char *argv[]){
 		}
 	}
 
+	// before shuffling, set seed based on time of execution
+	srand(time(0));
+
 	// first shuffle each category individually
 	random_shuffle(player_cards.begin(), player_cards.end());
 	random_shuffle(weapon_cards.begin(), weapon_cards.end());
 	random_shuffle(location_cards.begin(), location_cards.end());
 
+	int cf_player = rand() % 6;
+	int cf_weapon = rand() % 6;
+	int cf_location = rand() % 9;
+
 
 	// get one from each category for the case file
 	GamePlay::populate_case_file(
-		player_cards[0], 
-		weapon_cards[0], 
-		location_cards[0]
+		player_cards[cf_player], 
+		weapon_cards[cf_weapon], 
+		location_cards[cf_location]
 	);
 	cout << "3 cards reserved in the case file." << endl;
 
 
 	// remove case file cards from remaining cards
-	player_cards.erase(player_cards.begin());
-	weapon_cards.erase(weapon_cards.begin());
-	location_cards.erase(location_cards.begin());
+	player_cards.erase(player_cards.begin() + cf_player);
+	weapon_cards.erase(weapon_cards.begin() + cf_weapon);
+	location_cards.erase(location_cards.begin() + cf_location);
 
 
 	// bin remaining cards together
