@@ -271,6 +271,10 @@ void update_active_buttons(string action){
 		bool temp[] = {true, false, true, false, false, true};
 		copy(temp, temp + 6, active_buttons);
 	}
+	else if (action.compare(request_location) == 0){
+		bool temp[] = {false, false, false, false, false, false};
+		copy(temp, temp + 6, active_buttons);
+	}
 	else if (action.compare(suggest_accuse_str) == 0){
 		bool temp[] = {false, true, false, false, true, true};
 		copy(temp, temp + 6, active_buttons);
